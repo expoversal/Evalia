@@ -452,7 +452,11 @@ function render() {
   const rec = $("#recommendation"); if (rec) rec.onchange = () => { state.recommendation = rec.value; save(); render(); };
   const approve = $("#approve"); if (approve) approve.onclick = () => { const by = $("#chair").value.trim(); if (!by) { $("#apperr").textContent = "Enter the panel chair's name."; return; } state.approval = { by, at: nowText() }; save(); render(); };
   const cp = $("#copymd"); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(markdown()); $("#copied").textContent = "Copied."; } catch { $("#copied").textContent = "Copying is blocked here."; } };
-  const sj = $("#savejson"); if (sj) sj.onclick = () => { const blob = new Blob([JSON.stringify({ engagement: D.context, signoff: state.signoff, status: state.status, decisions: state.decisions, clarifications: state.clar, recommendation: state.recommendation, approval: state.approval }, null, 1)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `evalia-decisions-${D.context.reference}.json`; a.click(); };
+  const sj = $("#savejson"); if (sj) sj.onclick = async () => {
+    const record = JSON.stringify({ engagement: D.context, signoff: state.signoff, status: state.status, decisions: state.decisions, clarifications: state.clar, recommendation: state.recommendation, approval: state.approval }, null, 1);
+    if (window.top !== window) { try { await navigator.clipboard.writeText(record); $("#copied").textContent = "Decision record copied (downloads are not available in this viewer)."; } catch { $("#copied").textContent = "Copying is blocked here."; } return; }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([record], { type: "application/json" })); a.download = `evalia-decisions-${D.context.reference}.json`; a.click();
+  };
   const bsel = $("#bsel"); if (bsel) bsel.onchange = () => { state.bidder = +bsel.value; save(); render(); };
 }
 render();

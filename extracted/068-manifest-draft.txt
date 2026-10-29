@@ -1,0 +1,11 @@
+{
+  "period": {"from": "...", "to": "..."},
+  "entries": 1234,
+  "first_entry_hash": "...",
+  "last_entry_hash": "...", 
+  "merkle_root": "...",
+  "signature": "...",
+  "signer_key_id": "...",
+  "previous_manifest_sha256": "...",
+  "chain_head": "..."  // the actual prev_hash of first entry — must chain to previous export
+}

@@ -1,0 +1,15 @@
+     ROOT KEY                     (offline HSM, 3-of-5 quorum)
+         │
+         │ signs
+         ▼
+     SEAL KEY                    (online HSM, daily use)
+         │
+         │ signs
+         ▼
+SEALS / CHECKPOINTS / MANIFESTS
+
+ANCHOR KEY                     (separate service, publishes)
+         │
+         │ signs
+         ▼
+TRANSPARENCY LOG ENTRIES

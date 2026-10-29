@@ -1,0 +1,6 @@
+$ python verify_audit.py --bundle audit/2026-04-01..2026-04-30/ \
+                         --pubkey seal-2026.pub.pem
+Bundle: audit/2026-04-01..2026-04-30/
+Result: PASS
+  manifests: 30
+  last_manifest_sha: 3f9a2e...

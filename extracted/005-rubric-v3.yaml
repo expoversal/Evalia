@@ -1,0 +1,25 @@
+# rubric_v3.yaml
+tender_type: construction
+currency: SGD
+criteria:
+  - id: C1
+    name: Track record
+    weight: 25
+    type: scored            # scored | pass_fail | informational
+    scale: {min: 0, max: 10}
+    guidance: "Relevant completed projects of similar scale in last 5 years"
+    evidence_required: ["project list", "completion certificates"]
+  - id: C2
+    name: Financial capacity
+    weight: 0
+    type: pass_fail
+    rule: "audited_equity >= 0.3 * contract_value"
+  - id: C3
+    name: Methodology
+    weight: 45
+    type: scored
+    scale: {min: 0, max: 10}
+gates:
+  - id: G1
+    rule: "all mandatory documents present"
+normalization: linear   # linear | zscore | rank

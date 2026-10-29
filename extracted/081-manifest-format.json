@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "tender_id": "...",
+  "period": {"from": "...", "to": "..."},
+  "entry_count": 1234,
+  "first_entry_hash": "...",
+  "last_entry_hash": "...",
+  "first_entry_prev_hash": "...",
+  "merkle_root": "...",
+  "checkpoint": {
+    "id": "...", "head_hash": "...", "entry_count": 987654,
+    "signature": "...", "signer_key_id": "..."
+  },
+  "seal_merkle_roots": [
+    {"envelope": "technical", "merkle_root": "...", "leaf_count": 350,
+     "signature": "...", "signer_key_id": "..."},
+    {"envelope": "commercial", "merkle_root": "...", "leaf_count": 42,
+     "signature": "...", "signer_key_id": "..."}
+  ],
+  "previous_manifest_sha256": "...",
+  "exported_at": "...",
+  "signature": "...",
+  "signer_key_id": "..."
+}

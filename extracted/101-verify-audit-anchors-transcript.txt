@@ -1,0 +1,8 @@
+$ python verify_audit.py --bundle audit/<tender>/ --pubkey seal.pub.pem
+Bundle: audit/<tender>/
+Result: PASS
+  manifests: 30
+  last_manifest_sha: 3f9a2e...
+  timestamp: 2026-04-15T14:22:33Z  (RFC 3161, TSA: Sectigo)
+  rekor_index: 8943721
+  ...

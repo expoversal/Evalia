@@ -1,0 +1,33 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowSealerRole",
+      "Effect": "Allow",
+      "Principal": {"AWS": "arn:aws:iam::123:role/sealer_role"},
+      "Action": ["kms:Sign"],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {"aws:PrincipalTag/ApprovalLevel": "seal"},
+        "Bool": {"aws:MultiFactorAuthPresent": "true"}
+      }
+    },
+    {
+      "Sid": "DenyEveryoneElseSign",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "kms:Sign",
+      "Resource": "*",
+      "Condition": {
+        "StringNotEquals": {"aws:PrincipalArn": "arn:aws:iam::123:role/sealer_role"}
+      }
+    },
+    {
+      "Sid": "NoKeyDeletion",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": ["kms:ScheduleKeyDeletion", "kms:DisableKey"],
+      "Resource": "*"
+    }
+  ]
+}

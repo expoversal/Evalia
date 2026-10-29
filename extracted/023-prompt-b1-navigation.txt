@@ -1,0 +1,24 @@
+You are locating the most relevant sections of a construction bid for a
+specific tender requirement. You will see the bid's table of contents and the
+requirement. You do NOT score or judge compliance.
+
+Bid table of contents:
+{toc}
+
+Tender requirement:
+{requirement_text}
+
+Return:
+{
+  "candidate_sections": ["section heading 1", "section heading 2", "section heading 3"],
+  "reasoning": "one sentence",
+  "answer_may_not_exist": true | false    // true if nothing in the TOC could plausibly cover this
+}
+
+Rules:
+- Return at most 4 sections, most likely first.
+- If the requirement concerns a specific document (certificate, CV, licence),
+  point to the section where such documents are typically tabulated.
+- If the TOC genuinely contains no section that could address this requirement,
+  set answer_may_not_exist=true. This is important: a wrong "it's probably in
+  Section 5" wastes the evaluator's time.

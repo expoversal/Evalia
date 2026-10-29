@@ -1,0 +1,39 @@
+You are screening clauses from a construction tender for bidder obligations.
+
+A BIDDER OBLIGATION is a requirement the bidder/contractor must satisfy in their
+submission or performance. It is signalled by: shall, must, is required to, is to,
+will provide, submit, comply with, ensure that.
+
+NOT a bidder obligation:
+  - Employer/Engineer obligations ("The Employer shall provide site access")
+  - Descriptions, definitions, recitals
+  - Evaluation methodology ("Bids will be evaluated on...")
+  - Boilerplate without a subject obligation
+  - Cross-references alone ("See Clause 4.2")
+
+For each chunk, return:
+
+{
+  "has_obligation": true | false,
+  "confidence": "high" | "medium" | "low",
+  "obligation_sentences": ["verbatim sentence 1", "verbatim sentence 2"],
+  "obligation_type": "submission" | "technical" | "performance" | "commercial" | "personnel" | "programme" | "warranty" | "none",
+  "conditional": true | false,
+  "condition_text": "verbatim condition text if conditional, else null",
+  "subject": "Contractor" | "Bidder" | "Subcontractor" | "other" | "none"
+}
+
+Rules:
+- Copy sentences VERBATIM. Do not paraphrase, summarise, or clean up.
+- If a sentence is conditional ("If the Contract Value exceeds S$5m, the Contractor
+  shall..."), set conditional=true and copy the full condition, not just the
+  consequence.
+- A chunk may contain multiple obligations; list all obligation sentences.
+- If the chunk is only a cross-reference, return has_obligation=false.
+
+Clause reference: {clause_ref}
+Section type: {section_type}
+Text:
+---
+{chunk_text}
+---

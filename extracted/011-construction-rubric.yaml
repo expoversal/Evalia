@@ -1,0 +1,76 @@
+# construction_rubric.yaml  (Singapore PSSCOC-flavoured)
+envelope: technical
+currency: SGD
+gates:                                  # pass/fail, disqualifying
+  - id: G1
+    name: Valid contractor registration
+    check: registry_lookup         # deterministic — BCA grade vs contract value band
+    params: {registry: BCA, workhead: CW01, min_grade_by_value: true}
+  - id: G2
+    name: Builders Licence & WSH compliance
+    check: document_present_and_valid
+    params: {docs: [builders_licence, wsh_policy], not_expired: true}
+  - id: G3
+    name: Bid security
+    check: amount_and_validity
+    params: {min_amount_pct: 2, validity_days: 90}
+  - id: G4
+    name: Mandatory documents complete
+    check: checklist
+    params: {required: [form_of_tender, priced_bq, programme, methodology]}
+
+criteria:
+  - id: C1
+    name: Track record — similar projects
+    weight: 25
+    scale: {min: 0, max: 10}
+    anchors:                        # rubric anchors beat free-text guidance
+      0: "No comparable project in last 5 years"
+      4: "One comparable project; scale or scope differs materially"
+      7: "Two+ comparable projects, on time, verifiable references"
+      10: "Three+ highly comparable projects, on time, exemplary references"
+    evidence_required: [project_list, completion_certificates, client_references]
+    comparability: {value_pct_of_contract: [0.7, 1.5], years: 5}
+
+  - id: C2
+    name: Key personnel
+    weight: 15
+    sub_criteria:                   # score each role, then aggregate
+      - {role: project_manager, min_years: 10, similar_scale: true}
+      - {role: site_engineer,   min_years: 5}
+      - {role: safety_officer,  cert: WSH_Coordinator}
+    evidence_required: [cvs, certificates]
+
+  - id: C3
+    name: Methodology & site-specific approach
+    weight: 30
+    scale: {min: 0, max: 10}
+    must_address:                   # extracted from specs/tender doc at ingest time
+      - temporary works and shoring
+      - traffic management during construction
+      - interface with adjacent occupied premises
+      - noise/dust mitigation
+    anchors:
+      0: "Generic; does not address site constraints"
+      5: "Addresses most constraints; some generic language"
+      10: "Site-specific, sequenced, referenced to drawings/specs"
+
+  - id: C4
+    name: Programme credibility
+    weight: 15
+    scale: {min: 0, max: 10}
+    checks: [duration_within_limit, milestones_defined, critical_path_plausible]
+
+  - id: C5
+    name: Financial capacity
+    weight: 15
+    scale: {min: 0, max: 10}
+    formula:                        # deterministic inputs, AI writes rationale only
+      equity_ratio: "audited_equity / contract_value"
+      turnover_ratio: "3yr_avg_turnover / contract_value"
+    thresholds: {equity_ratio_min: 0.3, turnover_ratio_min: 1.5}
+
+  - id: C6
+    name: Safety record
+    weight: 0                      # informational — feeds gate or narrative
+    type: informational

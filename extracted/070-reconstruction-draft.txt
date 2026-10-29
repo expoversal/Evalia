@@ -1,0 +1,2 @@
+For each audit entry where action IN ('propose', 'override', 'seal', 'unseal'):
+  apply the 'after' state to the reconstructed record

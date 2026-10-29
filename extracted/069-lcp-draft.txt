@@ -1,0 +1,1 @@
+winner = argmin(price) over bidders where technical_passed

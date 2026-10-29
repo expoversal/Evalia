@@ -1,0 +1,6 @@
+API (FastAPI) → RBAC middleware → schema router
+                                    ├─ technical schema
+                                    └─ commercial schema
+Frontend (Next.js + PDF.js)
+Audit ledger (hash chain, append-only)
+Sealing service (Merkle + Ed25519 signing)

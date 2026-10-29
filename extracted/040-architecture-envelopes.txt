@@ -1,0 +1,18 @@
+      ┌────────────────────────────────┐
+      │  Next.js UI (evaluator)        │
+      │  matrix · viewer · override    │
+      └───────────────┬────────────────┘
+                      │ JWT (roles + envelope scope)
+      ┌───────────────▼────────────────┐
+      │  FastAPI · RBAC middleware     │
+      │  · envelope access check       │
+      │  · sealing service             │
+      │  · audit writer                │
+      └───┬──────────────┬─────────────┘
+          │              │
+┌─────────▼────┐  ┌──────▼──────┐  ┌──────────────┐
+│ technical.*  │  │commercial.* │  │  audit.*     │
+│ (separate    │  │ (separate   │  │ append-only  │
+│  schema,     │  │  schema,    │  │ hash-chained │
+│  sealed)     │  │  sealed)    │  └──────────────┘
+└──────────────┘  └─────────────┘

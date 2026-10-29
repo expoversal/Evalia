@@ -1,0 +1,12 @@
+1. Tender created (state=draft)
+2. Bids ingested, AI proposals generated
+3. Technical evaluators review all rows (human_status set on every row)
+4. Lead verifies no unreviewed rows:  GET /tenders/{id}/technical/coverage
+5. Lead seals:                        POST /tenders/{id}/seal/technical
+   → state=tech_sealed, commercial endpoints unlock
+6. Commercial evaluators work
+7. Lead verifies commercial coverage → seals commercial
+   → state=commercial_sealed
+8. Procurement officer runs award calculation (reads both envelopes through
+   a separate service account, not via UI)
+9. State=awarded

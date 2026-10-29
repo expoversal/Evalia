@@ -10,6 +10,7 @@ Evalia helps clients evaluate construction tenders. It proposes compliance findi
 | [`docs/03-llm-layer.md`](docs/03-llm-layer.md) | Model-agnostic LLM layer for US-hosted, EU-hosted and self-hosted models |
 | [`docs/04-v1-scope.md`](docs/04-v1-scope.md) | Version one: three supported tender evaluations for the discovery test |
 | [`docs/06-check-catalogue.md`](docs/06-check-catalogue.md) | What six real tenders require of an evaluation, and what the prototype covers |
+| [`docs/07-handoff.md`](docs/07-handoff.md) | State of the work, decisions and next steps, for whoever picks it up |
 | [`extracted/INVENTORY.md`](extracted/INVENTORY.md) | Every code fragment in the source conversation, and whether it runs |
 | [`docs/deepseek-source.md`](docs/deepseek-source.md) | The source conversation (reference only) |
 

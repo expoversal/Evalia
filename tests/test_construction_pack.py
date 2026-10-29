@@ -146,3 +146,30 @@ def test_model_output_is_checked(tmp_path):
     assert not silver.fully_verified and silver.basis == "Interpretation" and silver.severity == "critical"
     clear = [f for f in found if f.check == "T5 Relevant experience" and "Clearwater" in f.title][0]
     assert not clear.fully_verified  # the rating quote was cited on the wrong page
+
+
+def test_tender_document_contradictions(out):
+    issues = {i["key"]: [v["value"] for v in i["values"]] for i in out["rfp_issues"]}
+    assert issues == {"Tender validity (days)": ["120", "90"], "Tender security validity (days)": ["150", "120"]}
+    assert all(v["verified"] for i in out["rfp_issues"] for v in i["values"])
+
+
+def test_new_responsiveness_checks(out):
+    assert "valid for 90 days, not the 150 required" in of(out, C, "Tender security")[0]["title"]
+    assert of(out, C, "Addenda acknowledged")[0]["title"] == "Addendum No. 2 not acknowledged"
+    assert of(out, H, "No prices in technical tender")[0]["severity"] == "attention"
+    assert of(out, N, "No prices in technical tender")[0]["severity"] == "info"
+
+
+def test_words_prevail_and_preference(out):
+    assert of(out, H, "Words and figures")[0]["severity"] == "critical"
+    assert out["commercial"][H]["evaluated"] == 19_556_000  # words prevail over $19,565,000 in figures
+    assert out["commercial"][C]["comparison"] == pytest.approx(17_702_200 * 1.05)  # registered outside the home state
+    assert out["commercial"][N]["comparison"] == out["commercial"][N]["evaluated"]
+    assert out["rules"]["technical_pass"] == 24 and out["rules"]["methodology_cutoff"] == 4
+
+
+def test_qualification(out):
+    assert "expired on 31 August 2026" in of(out, H, "Tax clearance certificate")[0]["title"]
+    assert of(out, H, "Financial standing")[0]["severity"] == "critical"
+    assert of(out, N, "Financial standing")[0]["severity"] == "info"

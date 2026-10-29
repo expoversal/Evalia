@@ -47,6 +47,12 @@ def run(rfp_path: Path, tender_paths: list[Path], receipts_path: Path) -> dict:
                     "deadline": receipts["deadline"], "deadline_text": rfp.deadline_text, "doc_id": rfp_doc.doc_id,
                     "pages": len(rfp_doc.pages), "sha256": rfp_doc.sha256},
         "register": register,
+        "rfp_issues": [{"key": k, "values": [{"value": v, "page": pg, "quote": q, "verified": quote_on_page(rfp_doc, pg, q)}
+                                             for v, pg, q in vals]}
+                       for k, vals in rfp.stated.items() if len({v for v, _, _ in vals}) > 1],
+        "rules": {"technical_pass": rfp.technical_pass, "methodology_cutoff": rfp.methodology_cutoff,
+                  "preference_pct": rfp.preference_pct, "home_state": rfp.home_state, "standstill_days": rfp.standstill_days,
+                  "words_prevail": rfp.words_prevail, "security_pct": rfp.security_pct, "security_days": rfp.security_days},
         "framework": {**fw.model_dump(mode="json"), "consistency": consistency,
                       "requirements": rfp.requirements, "key_roles": rfp.key_roles, "particulars": rfp.particulars},
         "tenderers": tenderers,

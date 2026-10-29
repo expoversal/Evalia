@@ -9,6 +9,7 @@ Evalia helps clients evaluate construction tenders. It proposes compliance findi
 | [`docs/02-architecture.md`](docs/02-architecture.md) | Proposed architecture: industry-neutral engine and construction rubric pack |
 | [`docs/03-llm-layer.md`](docs/03-llm-layer.md) | Model-agnostic LLM layer for US-hosted, EU-hosted and self-hosted models |
 | [`docs/04-v1-scope.md`](docs/04-v1-scope.md) | Version one: three supported tender evaluations for the discovery test |
+| [`docs/06-check-catalogue.md`](docs/06-check-catalogue.md) | What six real tenders require of an evaluation, and what the prototype covers |
 | [`extracted/INVENTORY.md`](extracted/INVENTORY.md) | Every code fragment in the source conversation, and whether it runs |
 | [`docs/deepseek-source.md`](docs/deepseek-source.md) | The source conversation (reference only) |
 
@@ -48,15 +49,15 @@ python -m pytest
 
 | Stage | What Evalia does | How |
 |---|---|---|
-| Tender documents | Extracts the requirements register from the request for proposal, each entry quoted and checked against its page | Deterministic reader for the fictional format |
+| Tender documents | Extracts the requirements register from the request for proposal, each entry quoted and checked against its page; flags requirements the document states with different values | Deterministic reader for the fictional format |
 | Framework | Proposes streams, weights, criteria, contract baseline, risk heads and thresholds; the client signs off before opening | Construction pack defaults (`packs/construction/framework.yaml`) |
 | Receipt and opening | Receipt time against the deadline; document fingerprints | Code |
-| Responsiveness | Signature, power of attorney, validity, required forms, pricing structure, provisional sums, anti-collusion certificate, qualifications outside the deviations form | Code; phrase search for qualifications |
+| Responsiveness | Signature, power of attorney, validity, tender security, addenda, required forms, pricing structure, provisional sums, anti-collusion certificate, prices in the technical tender, qualifications outside the deviations form | Code; phrase search for qualifications |
 | Technical | Requirement coverage of each methodology; programme, safety record, experience checked against owners' evaluations, key personnel | Code, except requirement coverage: a keyword stand-in for a model reading. Methodology is scored by the evaluator |
-| Commercial | Arithmetic under the tender's correction rule, provisional sums restored, evaluated price, rate comparison, cash-flow front-loading, estimate comparison, split against combined award | Code |
+| Commercial | Arithmetic under the tender's correction rule, words against figures, provisional sums restored, evaluated price, domestic preference, rate comparison, cash-flow front-loading, estimate comparison, split against combined award | Code |
 | Contract | Deviations register against the contract particulars, risk head, materiality, quantified at the evaluated price | Code, with a risk-head table standing in for a model classification |
-| Integrity | Litigation and termination disclosures; identical rates and shared subcontractors across tenders | Code |
-| Clarifications, consolidation, report | Draft questions and letters; scores from decided findings only; weight sensitivity; report with the panel chair's approval | Code, in the page |
+| Qualification and integrity | Licence class and expiry, tax clearance, turnover against the price, litigation and terminations; identical rates and shared subcontractors across tenders | Code |
+| Clarifications, consolidation, award, report | Draft questions and letters; technical threshold; scores from decided findings only; weight sensitivity; weighted against lowest-price award; due diligence; award notices and standstill; report with the panel chair's approval | Code, in the page |
 | Tenderer's view | The same checks on a tenderer's own draft, without any comparison with other tenders or scores | Code |
 
 The model-based readers (`packs/construction/extract.py`) go through the LLM gateway and are tested with a stand-in model only; no product API key has been configured yet.

@@ -11,7 +11,12 @@ different parts of the evaluation:
   material contract deviations and an assumption stated outside the deviations form.
 - Harbor & Pine Contractors: received after the deadline, a methodology that misses
   several requirements, a programme over the limit, an unsubstantiated rating claim,
-  a litigation disclosure, and unit rates identical to Cobalt Ridge's on three items.
+  a litigation disclosure, unit rates identical to Cobalt Ridge's, an expired tax certificate,
+  turnover below the threshold, words that differ from figures, and a price in the technical tender.
+
+The request for proposal itself contains two deliberate contradictions (tender validity, and the
+validity of the tender security), because real tender documents often do, and Evalia should flag
+them before the framework is signed off.
 
 Run from the repository root:
 
@@ -72,7 +77,8 @@ PARTICULARS = [
 ]
 
 FORMS = [
-    ("Volume 1", "Letter of Tender", "signed by an authorized signatory"),
+    ("Volume 1", "Letter of Tender", "signed by an authorized signatory; tender valid for 90 days"),
+    ("Volume 1", "Tender Security", "2% of the Combined Offer, valid for 120 days"),
     ("Volume 1", "Power of Attorney", "for each signatory"),
     ("Volume 1", "Form B - Tenderer Information", ""),
     ("Volume 1", "Form G - Proposed Changes to Tender Requirements", "the only place deviations will be considered"),
@@ -130,6 +136,13 @@ class Tenderer:
     litigation: list[str] = field(default_factory=list)
     terminations: list[str] = field(default_factory=list)
     pricing_note: str = ""
+    home_state: str = "State of Lakeshore (fictional)"
+    licence: tuple[str, str, str] = ("GB-0000", "Class A", "30 June 2027")
+    tax_certificate: tuple[str, str] = ("TC-0000", "31 December 2026")
+    turnover: tuple[int, int, int] = (40_000_000, 42_000_000, 45_000_000)
+    security: tuple[float, int] = (0.0, 150)
+    addenda: str = "Addenda No. 1 and No. 2"
+    words: str = ""
     cashflow_pct: list[float] = field(default_factory=list)
     projects: list[Project] = field(default_factory=list)
 
@@ -146,6 +159,11 @@ TENDERERS = [
         rates={"A": rates(780_000, 6.50, 21.00, 26_500, 820_000, 1_950_000),
                "B": rates(540_000, 6.50, 21.00, 26_500, 410_000, 1_050_000)},
         discount_pct=2.0,
+        licence=("GB-4471", "Class A", "30 June 2027"),
+        tax_certificate=("TC-88213", "31 December 2026"),
+        turnover=(44_500_000, 47_200_000, 51_800_000),
+        security=(360_000.00, 150),
+        words="Seventeen million nine hundred thirty-four thousand dollars",
         emr=0.78,
         programme_weeks=38,
         methodology=[
@@ -181,6 +199,13 @@ TENDERERS = [
         amount_overrides={("A", "4"): 4_176_000.00},
         provisional={"A": 150_000.00, "B": 150_000.00},
         discount_pct=1.0,
+        home_state="State of Westmoor (fictional)",
+        licence=("WB-2290", "Class A", "31 March 2027"),
+        tax_certificate=("TC-51907", "30 November 2026"),
+        turnover=(36_100_000, 39_400_000, 41_900_000),
+        security=(355_000.00, 90),
+        addenda="Addendum No. 1",
+        words="Seventeen million six hundred two thousand two hundred dollars",
         validity_days=90,
         power_of_attorney=False,
         emr=0.95,
@@ -217,6 +242,11 @@ TENDERERS = [
         signatory="Priya Natarajan, Chief Executive (fictional)",
         rates={"A": rates(900_000, 6.10, 19.40, 28_900, 980_000, 2_240_000),
                "B": rates(610_000, 6.10, 19.40, 28_900, 495_000, 1_190_000)},
+        licence=("GB-3018", "Class A", "31 January 2027"),
+        tax_certificate=("TC-60455", "31 August 2026"),
+        turnover=(29_800_000, 31_500_000, 33_100_000),
+        security=(391_300.00, 150),
+        words="Nineteen million five hundred fifty-six thousand dollars",
         emr=1.12,
         programme_weeks=46,
         methodology=[
@@ -226,6 +256,7 @@ TENDERERS = [
             "Deliveries will be routed through the service dock.",
             "We will divert 60% of construction waste from landfill.",
             "Our price excludes the removal of any concealed asbestos found behind existing finishes.",
+            "Our preliminaries allowance of $610,000.00 for Building B covers the phased handover.",
         ],
         personnel=[("Project Manager", "Carla Jensen (fictional)", 16), ("Site Manager", "Ben Ashworth (fictional)", 9),
                    ("HSE Manager", "Mina Sato (fictional)", 4), ("BIM Coordinator", "Femi Adeyemi (fictional)", 5)],
@@ -314,6 +345,16 @@ def build_rfp(path: Path) -> None:
         p("2.6 Arithmetic errors. If the stated total of a pricing schedule is lower than the arithmetically corrected sum, the "
           "stated total shall stand and the tenderer shall bear the difference. If the stated total is higher than the corrected "
           "sum, the tender shall be evaluated and accepted at the corrected sum."),
+        p("2.7 Tender security. Each tender shall include a tender security of not less than 2% of the Combined Offer, valid "
+          "for at least 150 days from the submission date."),
+        p("2.8 Addenda. Addenda No. 1 and No. 2 have been issued. The Letter of Tender shall acknowledge every addendum."),
+        p("2.9 The Combined Offer shall be stated in words and in figures. If they differ, the amount in words prevails."),
+        p("2.10 The technical tender (Volume 2) shall contain no prices."),
+        p("2.11 Eligibility. Each tenderer shall hold a General Building Contractor licence, Class A, and a tax clearance "
+          "certificate, both valid on the submission date. Average annual turnover over 2023 to 2025 shall be at least 2 times "
+          "the Combined Offer."),
+        p("2.12 Domestic preference. For comparison only, the evaluated price of a tenderer not registered in the State of "
+          "Lakeshore is increased by 5%."),
         PageBreak(),
         p("3. Tender content", "Heading3"),
         grid([["Volume", "Form", "Requirement"]] + [[v, f, r] for v, f, r in FORMS], [70, 300, 330]),
@@ -345,6 +386,10 @@ def build_rfp(path: Path) -> None:
         p("7.6 Relevant experience: 2.5 points for each hotel fit-out project completed between 2019 and 2026 with a contract "
           "value of at least $8,000,000, an owner performance rating of Satisfactory or better, and performed as prime "
           "contractor; at most four projects are counted."),
+        p("7.7 Technical threshold. A tender scoring fewer than 24 of the 40 technical points, or fewer than 4 points for "
+          "methodology, is technically non-compliant and its commercial tender is not evaluated."),
+        p("7.8 Award. The Employer will notify all tenderers of its decision and will not sign the Contract until a standstill "
+          "period of 10 days has passed."),
     ]
     SimpleDocTemplate(str(path), pagesize=PAGE, title=f"RFP {REF}").build(story, onFirstPage=stamp, onLaterPages=stamp)
 
@@ -363,6 +408,8 @@ def build_tender(t: Tenderer, path: Path) -> None:
         p(f"Tenderer: {t.company}"),
         p(f"We offer to execute the Works for the Combined Offer of {money(combined)}, or for Lot A at {money(a)} and Lot B at "
           f"{money(b)}."),
+        p(f"Combined Offer in words: {t.words}."),
+        p(f"We acknowledge {t.addenda}."),
         p(f"This tender remains valid for {t.validity_days} days from the submission date."),
         p(f"Signed: {t.signatory}"),
     ]
@@ -370,8 +417,16 @@ def build_tender(t: Tenderer, path: Path) -> None:
         story += [PageBreak(), p("Power of Attorney", "Heading2"),
                   p(f"The board of {t.company} authorizes {t.signatory.split(',')[0]} to sign this tender and the Contract.")]
     story += [
+        PageBreak(), p("Tender Security", "Heading2"),
+        p("Issued by: First Harbor Bank (fictional)"),
+        p(f"Amount: {money(t.security[0])}"),
+        p(f"This security is valid for {t.security[1]} days from the submission date."),
         PageBreak(), p("Form B - Tenderer Information", "Heading2"),
-        p(f"Legal name: {t.company}"), p("Legal form: corporation registered in the State of Lakeshore (fictional)"),
+        p(f"Legal name: {t.company}"), p(f"Registered in: {t.home_state}"),
+        grid([["Registration", "Number", "Class", "Valid until"],
+              ["General Building Contractor licence", t.licence[0], t.licence[1], t.licence[2]],
+              ["Tax clearance certificate", t.tax_certificate[0], "", t.tax_certificate[1]]], [220, 100, 80, 120]),
+        grid([["Year", "Annual turnover"]] + [[str(y), money(v)] for y, v in zip((2023, 2024, 2025), t.turnover)], [80, 160]),
         PageBreak(), p("Form G - Proposed Changes to Tender Requirements", "Heading2"),
         grid([["No.", "Particular", "Tender requirement", "Proposed change", "Reason"]]
              + ([[str(n), *d] for n, d in enumerate(t.deviations, 1)] or [["", "None", "", "", ""]]),

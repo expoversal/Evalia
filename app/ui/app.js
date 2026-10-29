@@ -11,14 +11,15 @@ const STAGES = [
   { id: "technical", phase: "Evaluate", title: "Technical", stream: "technical" },
   { id: "commercial", phase: "Evaluate", title: "Commercial", stream: "commercial" },
   { id: "contract", phase: "Evaluate", title: "Contract", stream: "contract" },
-  { id: "integrity", phase: "Evaluate", title: "Integrity", stream: "integrity" },
+  { id: "integrity", phase: "Evaluate", title: "Qualification and integrity", stream: "integrity" },
   { id: "clarifications", phase: "Decide", title: "Clarifications" },
   { id: "consolidation", phase: "Decide", title: "Consolidation and ranking" },
+  { id: "award", phase: "Decide", title: "Due diligence and award" },
   { id: "report", phase: "Decide", title: "Evaluation report" },
 ];
 const DEMO = location.hash.includes("demo");
 const KEY = "evalia:" + D.context.sha256.slice(0, 16);
-const blank = () => ({ stage: 0, signoff: null, decisions: {}, editing: {}, tab: {}, status: {}, clar: {}, ack: false, mode: "client", bidder: 1, recommendation: null, approval: null });
+const blank = () => ({ stage: 0, signoff: null, decisions: {}, editing: {}, tab: {}, status: {}, clar: {}, ack: false, mode: "client", bidder: 1, recommendation: null, approval: null, resolve: {}, dd: {}, method: "weighted", notices: null });
 let state = blank();
 try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) state = Object.assign(blank(), saved); } catch { /* storage unavailable */ }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage unavailable */ } };
@@ -73,7 +74,14 @@ const admitted = (name) => statusOf(name).admitted !== false;
 const proposedResponsive = (name) => F.some(f => f.stream === "gate" && f.subject === name && f.severity === "critical") ? "clarify" : "yes";
 const responsiveStatus = (name) => statusOf(name).responsive ?? proposedResponsive(name);
 const responsive = (name) => responsiveStatus(name) !== "no";
-const eligible = (name) => admitted(name) && responsive(name);
+const RULES = D.rules || {};
+function techPass(name) {
+  const fs = F.filter(f => f.subject === name && f.stream === "technical" && f.criterion);
+  if (fs.some(f => !state.decisions[f.id])) return null;
+  const tech = ["T1", "T2", "T3", "T4", "T5", "T6"].reduce((a, c) => a + criterionPoints(name, c).pts, 0);
+  return tech >= (RULES.technical_pass ?? 0) && criterionPoints(name, "T2").pts >= (RULES.methodology_cutoff ?? 0);
+}
+const eligible = (name) => admitted(name) && responsive(name) && techPass(name) !== false;
 const priceFinding = (name) => F.find(f => f.subject === name && f.criterion === "P1");
 function priceScores() {
   const prices = {};
@@ -138,6 +146,9 @@ V.documents = () => {
     + `<div class="stats"><div class="stat"><b>${D.register.length}</b><span>requirements extracted</span></div><div class="stat ${ok ? "ok" : "bad"}"><b>${D.register.filter(r => r.verified).length}</b><span>quotes found on their page</span></div><div class="stat"><b>${D.framework.requirements.length}</b><span>employer's requirements</span></div></div>`
     + cats.map(c => `<div class="card"><div class="card-head"><h2>${esc(c)}</h2><span class="aside">${D.register.filter(r => r.category === c).length} entries</span></div>
       <div class="scroll"><table><tbody>${D.register.filter(r => r.category === c).map(r => `<tr><td style="width:30%"><strong>${esc(r.key)}</strong></td><td>${esc(r.text)}</td><td class="num">${r.verified ? "✓ " : "✕ "}${pageLink(D.context.doc_id, r.page, r.quote)}</td></tr>`).join("")}</tbody></table></div></div>`).join("")
+    + (D.rfp_issues.length ? `<div class="card" style="box-shadow:var(--sh1), inset 4px 0 0 var(--bad)"><div class="card-head"><h2>The document contradicts itself</h2><span class="aside">${D.rfp_issues.length} to resolve before sign-off</span></div>
+      <p class="small muted" style="margin:0">The same requirement is stated with different values. Resolve each by addendum before tenders close, or record which value governs; you will be asked at sign-off.</p>
+      ${D.rfp_issues.map(i => `<div class="clarify"><b>${esc(i.key)}:</b> ${i.values.map(v => `${esc(v.value)} (${pageLink(D.context.doc_id, v.page, v.quote)}: “${esc(v.quote)}”)`).join(" against ")}</div>`).join("")}</div>` : "")
     + `<div class="card"><div class="card-head"><h2>Consistency check</h2><span class="aside">framework against the document</span></div>
       <div class="scroll"><table><thead><tr><th>Stream</th><th class="num">Request for proposal</th><th class="num">Framework</th><th>Consistent</th></tr></thead><tbody>
       ${D.framework.consistency.map(c => `<tr><td>${esc(c.stream)}</td><td class="num">${c.rfp}</td><td class="num">${c.framework}</td><td>${tick(c.match)}</td></tr>`).join("")}</tbody></table></div></div>`
@@ -161,7 +172,8 @@ V.framework = () => {
     <div class="card"><div class="card-head"><h2>Commercial rules</h2></div><dl class="kv"><dt>Award basis</dt><dd>Combined offer; split award compared</dd><dt>Arithmetic</dt><dd>Lower of stated and corrected totals</dd><dt>Provisional sums</dt><dd>Restored to the Employer's amounts</dd><dt>Sensitivity</dt><dd>${Object.keys(fw.sensitivity).map(esc).join("; ")}</dd></dl></div></div>
     <div class="card"><div class="card-head"><h2>Not assessed by Evalia</h2></div><ul class="ticks docs">${fw.not_assessed.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
     ${s ? `<div class="ok-note">Signed off by <strong>${esc(s.by)}</strong> on ${esc(s.at)}. The framework is locked for this evaluation.</div>${next(3, "Open the tenders")}`
-        : `<div class="actions"><button class="btn" id="sign">Sign off the framework</button><span class="small muted">as ${esc(evaluator() || "…")}</span></div><div class="err" id="signerr"></div>`}`;
+        : `${D.rfp_issues.length ? `<div class="card"><div class="card-head"><h2>Resolve the contradictions</h2><span class="aside">required before sign-off</span></div>${D.rfp_issues.map(i => `<div class="statusrow"><div><strong>${esc(i.key)}</strong><div class="tiny">stated as ${i.values.map(v => esc(v.value)).join(" and ")}</div></div><div class="actions"><select data-resolve="${esc(i.key)}"><option value="">Choose the value that governs…</option>${[...new Set(i.values.map(v => v.value))].map(v => `<option ${state.resolve[i.key] === v ? "selected" : ""}>${esc(v)}</option>`).join("")}</select><span class="tiny">confirm it to all tenderers by addendum</span></div></div>`).join("")}</div>` : ""}
+        <div class="actions"><button class="btn" id="sign">Sign off the framework</button><span class="small muted">as ${esc(evaluator() || "…")}</span></div><div class="err" id="signerr"></div>`}`;
 };
 
 // --- stream stages ----------------------------------------------------------------------------------------------------
@@ -279,10 +291,11 @@ V.commercial = () => {
       <tr><td>Lot A as stated</td>${NAMES.map(n => `<td class="num">${usd(C[n].lots.A.stated)}</td>`).join("")}</tr>
       <tr><td>Lot B as stated</td>${NAMES.map(n => `<td class="num">${usd(C[n].lots.B.stated)}</td>`).join("")}</tr>
       <tr><td>Discount for both lots</td>${NAMES.map(n => `<td class="num">${C[n].discount_pct}%</td>`).join("")}</tr>
-      <tr><td>Combined offer as stated</td>${NAMES.map(n => `<td class="num">${usd(C[n].combined_stated)}</td>`).join("")}</tr>
+      <tr><td>Combined offer${RULES.words_prevail ? ", words prevailing" : " as stated"}</td>${NAMES.map(n => `<td class="num">${usd(C[n].combined_stated)}</td>`).join("")}</tr>
       <tr><td>Arithmetically corrected</td>${NAMES.map(n => `<td class="num">${usd(C[n].combined_corrected)}</td>`).join("")}</tr>
       <tr><td>Provisional sums restored</td>${NAMES.map(n => `<td class="num">${C[n].normalisation ? "+" + usd(C[n].normalisation) : "—"}</td>`).join("")}</tr>
       <tr><td><strong>Evaluated price</strong></td>${NAMES.map(n => `<td class="num"><strong>${usd(C[n].evaluated)}</strong></td>`).join("")}</tr>
+      ${RULES.preference_pct ? `<tr><td>For comparison: ${RULES.preference_pct}% added outside the ${esc(RULES.home_state)}</td>${NAMES.map(n => `<td class="num">${C[n].preference ? usd(C[n].comparison) : "—"}</td>`).join("")}</tr>` : ""}
       <tr><td>Against the estimate of ${usd(D.framework.pre_tender_estimate)}</td>${NAMES.map(n => { const r = C[n].evaluated / D.framework.pre_tender_estimate - 1; return `<td class="num">${r > 0 ? "+" : ""}${(r * 100).toFixed(1)}%</td>`; }).join("")}</tr>
       <tr><td>Price points (of ${CRIT.P1.max})</td>${NAMES.map(n => `<td class="num">${ps[n] != null ? `<strong>${fmt(ps[n])}</strong>` : '<span class="prop">after decision</span>'}</td>`).join("")}</tr></tbody></table></div></div>
     <div class="card"><div class="card-head"><h2>Unit rates against the median</h2><span class="aside">tinted: more than ${pct(D.framework.thresholds.rate_outlier)} from the median; red outline: identical to another tender</span></div><div class="scroll"><table><thead><tr><th>Item</th>${NAMES.map(n => `<th class="num">${esc(short(n))}</th>`).join("")}</tr></thead><tbody>
@@ -334,18 +347,41 @@ V.consolidation = () => {
   const ranked = NAMES.filter(eligible).sort((a, b) => total(P[b]) - total(P[a]));
   const scen = Object.entries(D.framework.sensitivity).map(([name, w]) => { const t = reweight(Object.fromEntries(ranked.map(n => [n, P[n]])), w); return [name, Object.keys(t).sort((a, b) => t[b] - t[a]), t]; });
   const stable = scen.every(s => s[1][0] === scen[0][1][0]);
-  const lowest = ranked.slice().sort((a, b) => D.commercial[a].evaluated - D.commercial[b].evaluated)[0];
+  const lowest = ranked.slice().sort((a, b) => D.commercial[a].comparison - D.commercial[b].comparison)[0];
   return intro("Consolidation and ranking", "Points come only from decided findings, under the framework signed off before opening. Tenders that were not admitted or not responsive are not ranked.")
     + (open ? `<div class="notice" style="margin:0">${open} findings are still undecided. They carry no points, so this ranking is provisional.</div>` : "")
     + `<div class="card"><div class="card-head"><h2>Scores</h2><span class="aside">out of 100</span></div><div class="scroll"><table><thead><tr><th>Tenderer</th><th>Status</th><th class="num">Technical</th><th class="num">Commercial</th><th class="num">Contract</th><th class="num">Total</th><th class="num">Rank</th></tr></thead><tbody>
-      ${NAMES.map(n => { const r = P[n], el = eligible(n); return `<tr class="${el ? "" : "excluded"}"><td>${esc(short(n))}</td><td>${!admitted(n) ? '<span class="pill bad">Not admitted</span>' : !responsive(n) ? '<span class="pill bad">Not responsive</span>' : responsiveStatus(n) === "clarify" ? '<span class="pill warn">Subject to clarification</span>' : '<span class="pill ok">Responsive</span>'}</td>
+      ${NAMES.map(n => { const r = P[n], el = eligible(n); return `<tr class="${el ? "" : "excluded"}"><td>${esc(short(n))}</td><td>${!admitted(n) ? '<span class="pill bad">Not admitted</span>' : !responsive(n) ? '<span class="pill bad">Not responsive</span>' : techPass(n) === false ? '<span class="pill bad">Below technical threshold</span>' : responsiveStatus(n) === "clarify" ? '<span class="pill warn">Subject to clarification</span>' : '<span class="pill ok">Responsive</span>'}</td>
         <td class="num">${fmt(r.technical)}</td><td class="num">${fmt(r.commercial)}</td><td class="num">${fmt(r.contract)}</td><td class="num"><strong>${el ? fmt(total(r)) : "—"}</strong></td><td class="num">${el ? ranked.indexOf(n) + 1 : "—"}</td></tr>`; }).join("")}</tbody></table></div>
       <div class="bars">${ranked.map(n => `<div class="rankbar"><span>${esc(short(n))}</span><div class="stack">${["technical", "commercial", "contract"].map((g, i) => `<span style="width:${P[n][g]}%;background:${COLORS[i]}"></span>`).join("")}</div><span class="num">${fmt(total(P[n]))}</span></div>`).join("")}</div>
       <div class="legend">${["Technical", "Commercial", "Contract"].map((g, i) => `<span><span class="swatch" style="background:${COLORS[i]}"></span>${g}</span>`).join("")}</div></div>
     <div class="card"><div class="card-head"><h2>Sensitivity to the weights</h2><span class="aside">${stable ? "first place does not change" : "first place depends on the weights"}</span></div><div class="scroll"><table><thead><tr><th>Weighting</th><th>First</th><th>Second</th><th>Third</th></tr></thead><tbody>
       ${scen.map(([name, order, t]) => `<tr><td>${esc(name)}</td>${[0, 1, 2].map(i => `<td>${order[i] ? `${esc(short(order[i]))} <span class="tiny">${fmt(t[order[i]])}</span>` : ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
       <p class="small muted" style="margin:0">${ranked[0] && lowest && ranked[0] !== lowest ? `The highest-scoring tender is not the lowest-priced: ${esc(short(lowest))} has the lowest evaluated price.` : "The highest-scoring tender is also the lowest-priced."}</p></div>
-    ${next(11, "Draft the evaluation report")}`;
+    <div class="card"><div class="card-head"><h2>Award method</h2><span class="aside">same decisions, different rules</span></div>
+      <div class="scroll"><table><thead><tr><th>Method</th><th>Preferred tenderer</th><th>Basis</th></tr></thead><tbody>
+      <tr><td>Weighted score, as published${state.method === "weighted" ? " <span class=\"pill ok\">in use</span>" : ""}</td><td>${ranked[0] ? esc(short(ranked[0])) : "—"}</td><td class="small">${ranked[0] ? fmt(total(P[ranked[0]])) + " of 100 points" : ""}</td></tr>
+      <tr><td>Lowest evaluated price among technically compliant tenders</td><td>${lowest ? esc(short(lowest)) : "—"}</td><td class="small">${lowest ? usd(D.commercial[lowest].comparison) + " for comparison" : ""}</td></tr></tbody></table></div>
+      <p class="small muted" style="margin:0">The request for proposal fixes the method; the comparison shows the panel how much the choice matters. Tenders below the technical threshold of ${RULES.technical_pass} points (${RULES.methodology_cutoff} for methodology) are excluded under both.</p></div>
+    ${next(11, "Due diligence and award")}`;
+};
+
+V.award = () => {
+  const P = streamPoints(), ranked = NAMES.filter(eligible).sort((a, b) => total(P[b]) - total(P[a])), top = ranked[0];
+  if (!top) return intro("Due diligence and award", "No tender is eligible for award.");
+  const done = D.framework.due_diligence.filter((_, i) => (state.dd[i] || {}).ok).length;
+  const reason = (n) => !admitted(n) ? "it was not admitted, having been received after the deadline" : !responsive(n) ? "it was not substantially responsive" : techPass(n) === false ? `it scored below the technical threshold of ${RULES.technical_pass} points` : `it ranked ${ranked.indexOf(n) + 1} of ${ranked.length}, with ${fmt(total(P[n]))} points against ${fmt(total(P[top]))}`;
+  const until = (() => { if (!state.notices) return null; const d = new Date(state.notices.iso); d.setUTCDate(d.getUTCDate() + (RULES.standstill_days || 0)); return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "long", timeZone: "UTC" })} ${d.getUTCFullYear()}`; })();
+  return intro("Due diligence and award", `Before award, the panel verifies what the evaluation relied on for the preferred tenderer, ${esc(short(top)).replace(/\.$/, "")}. Then every tenderer is notified, and the contract is not signed until the standstill period of ${RULES.standstill_days} days has passed.`)
+    + `<div class="card"><div class="card-head"><h2>Due diligence on ${esc(short(top))}</h2><span class="aside">${done} of ${D.framework.due_diligence.length} confirmed</span></div>
+      ${D.framework.due_diligence.map((item, i) => { const r = state.dd[i] || {}; return `<div class="statusrow"><label class="small"><input type="checkbox" data-dd="${i}" ${r.ok ? "checked" : ""}> ${esc(item)}</label><input type="text" data-ddnote="${i}" placeholder="Note or reference" value="${esc(r.note || "")}"></div>`; }).join("")}</div>
+    <div class="card"><div class="card-head"><h2>Award notices</h2><span class="aside">${state.notices ? `issued ${esc(state.notices.at)}` : "drafts"}</span></div>
+      ${NAMES.map(n => `<details><summary>${esc(short(n))}: ${n === top ? "preferred tenderer" : "unsuccessful"}</summary><div class="letter">${esc(n === top
+        ? `To: ${short(n)}\n\nThe Employer intends to award the Contract for ${D.context.title} to you, at your Combined Offer, subject to the standstill period of ${RULES.standstill_days} days${until ? ", ending " + until : ""}. This notice is not acceptance; the Contract is formed only on signature.`
+        : `To: ${short(n)}\n\nThe Employer intends to award the Contract for ${D.context.title} to ${short(top)}. Your tender was not successful because ${reason(n)}. The Contract will not be signed before the end of the standstill period of ${RULES.standstill_days} days${until ? ", ending " + until : ""}. You may ask for a debriefing within that period.`)}</div></details>`).join("")}
+      ${state.notices ? `<div class="ok-note">Notices recorded as issued on ${esc(state.notices.at)}. Standstill ends ${esc(until)}; signature may follow.</div>`
+        : `<div class="actions"><button class="btn" id="issue" ${done < D.framework.due_diligence.length ? "disabled" : ""}>Record the notices as issued</button><span class="small muted">${done < D.framework.due_diligence.length ? "Complete the due diligence first." : ""}</span></div>`}</div>
+    ${next(12, "Draft the evaluation report")}`;
 };
 
 V.report = () => {
@@ -369,6 +405,9 @@ function reportHTML(P, ranked) {
     <h3>Ranking</h3><div class="scroll"><table><thead><tr><th>Tenderer</th><th class="num">Technical</th><th class="num">Commercial</th><th class="num">Contract</th><th class="num">Total</th></tr></thead><tbody>${ranked.map(n => `<tr><td>${esc(short(n))}</td><td class="num">${fmt(P[n].technical)}</td><td class="num">${fmt(P[n].commercial)}</td><td class="num">${fmt(P[n].contract)}</td><td class="num"><strong>${fmt(total(P[n]))}</strong></td></tr>`).join("")}</tbody></table></div>
     ${NAMES.filter(n => !eligible(n)).map(n => `<p class="small" style="margin:0">${esc(short(n))}: ${!admitted(n) ? "not admitted" : "not responsive"}${statusOf(n)[!admitted(n) ? "admitted_reason" : "responsive_reason"] ? ": " + esc(statusOf(n)[!admitted(n) ? "admitted_reason" : "responsive_reason"]) : ""}.</p>`).join("")}
     ${section("receipt", "Receipt")}${section("gate", "Responsiveness")}${section("technical", "Technical")}${section("commercial", "Commercial")}${section("contract", "Contract")}${section("integrity", "Integrity")}
+    <h3>Tender documents</h3><ul>${D.rfp_issues.map(i => `<li>${esc(i.key)} was stated as ${i.values.map(v => esc(v.value)).join(" and ")}; the panel recorded ${esc(state.resolve[i.key] || "no decision")} as governing.</li>`).join("") || "<li>No contradictions found.</li>"}</ul>
+    <h3>Due diligence</h3><ul>${D.framework.due_diligence.map((item, i) => `<li>${(state.dd[i] || {}).ok ? "✓" : "✕ Not confirmed:"} ${esc(item)}${(state.dd[i] || {}).note ? ` <span class="tiny">(${esc(state.dd[i].note)})</span>` : ""}</li>`).join("")}</ul>
+    <p class="small" style="margin:0">${state.notices ? `Award notices issued on ${esc(state.notices.at)}; standstill of ${RULES.standstill_days} days.` : "Award notices not yet issued."}</p>
     <h3>Clarifications</h3><ul>${NAMES.flatMap(clarItems).filter(f => (state.clar[f.id] || {}).include !== false).map(f => { const c = state.clar[f.id] || {}; return `<li>${esc(short(f.subject))}: ${esc(f.clarify)} <span class="tiny">(${esc(c.status || "Draft")}${c.answer ? "; answer: " + esc(c.answer) : ""})</span></li>`; }).join("")}</ul>
     <h3>Decision log</h3><div class="scroll"><table><thead><tr><th>Time (UTC)</th><th>Finding</th><th>Decision</th><th class="num">Points</th></tr></thead><tbody>${log.map(d => `<tr><td class="hash tiny">${esc(d.at.slice(11, 19))}</td><td>${esc(short(byId[d.id].subject))}: ${esc(byId[d.id].title)}${d.reason ? `<div class="tiny">${esc(d.reason)}</div>` : ""}</td><td>${DONE[d.action]}</td><td class="num">${fmt(finalPoints(byId[d.id]))}</td></tr>`).join("")}</tbody></table></div>
     <h3>Not assessed</h3><ul>${D.framework.not_assessed.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
@@ -423,7 +462,9 @@ function render() {
   $("#main").innerHTML = state.mode === "bidder" ? bidderView() : V[STAGES[state.stage].id]();
   const on = (sel, ev, fn) => document.querySelectorAll(sel).forEach(el => el[ev] = () => fn(el));
   const sign = $("#sign");
-  if (sign) sign.onclick = () => { if (!evaluator()) { $("#signerr").textContent = "Enter your name under Evaluator before signing off."; return; } state.signoff = { by: evaluator(), at: nowText() }; save(); render(); };
+  on("[data-resolve]", "onchange", el => { state.resolve[el.dataset.resolve] = el.value; save(); });
+  if (sign) sign.onclick = () => { if (!evaluator()) { $("#signerr").textContent = "Enter your name under Evaluator before signing off."; return; }
+    if (D.rfp_issues.some(i => !state.resolve[i.key])) { $("#signerr").textContent = "Choose the value that governs for each contradiction first."; return; } state.signoff = { by: evaluator(), at: nowText() }; save(); render(); };
   on("[data-tab]", "onclick", b => { const [s, i] = b.dataset.tab.split("|"); state.tab[s] = +i; save(); render(); });
   on("[data-act]", "onclick", b => b.parentElement.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)));
   on("[data-edit]", "onclick", b => { state.editing[b.dataset.edit] = true; if (b.dataset.goto) { state.stage = +b.dataset.goto; state.tab[byId[b.dataset.edit].stream] = NAMES.indexOf(byId[b.dataset.edit].subject); } save(); render(); if (b.dataset.goto) setTimeout(() => document.getElementById("card-" + b.dataset.edit)?.scrollIntoView({ block: "center" }), 0); });
@@ -457,6 +498,9 @@ function render() {
     if (window.top !== window) { try { await navigator.clipboard.writeText(record); $("#copied").textContent = "Decision record copied (downloads are not available in this viewer)."; } catch { $("#copied").textContent = "Copying is blocked here."; } return; }
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([record], { type: "application/json" })); a.download = `evalia-decisions-${D.context.reference}.json`; a.click();
   };
+  on("[data-dd]", "onchange", el => { state.dd[el.dataset.dd] = { ...(state.dd[el.dataset.dd] || {}), ok: el.checked }; save(); render(); });
+  on("[data-ddnote]", "onchange", el => { state.dd[el.dataset.ddnote] = { ...(state.dd[el.dataset.ddnote] || {}), note: el.value }; save(); });
+  const issue = $("#issue"); if (issue) issue.onclick = () => { state.notices = { at: nowText(), iso: new Date().toISOString(), by: evaluator() }; save(); render(); };
   const bsel = $("#bsel"); if (bsel) bsel.onchange = () => { state.bidder = +bsel.value; save(); render(); };
 }
 render();

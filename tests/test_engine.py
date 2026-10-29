@@ -132,3 +132,11 @@ def test_residency_fails_closed(tmp_path):
     with pytest.raises(ResidencyRefused):
         Gateway(prof, ResidencyPolicy(allowed=["self_hosted"]), tmp_path)
     assert not Gateway(prof, ResidencyPolicy(allowed=["us_api"]), tmp_path).available
+
+
+def test_words_to_number():
+    from evalia.engine.numbers import words_to_number
+    assert words_to_number("Nineteen million five hundred fifty-six thousand dollars") == 19_556_000
+    assert words_to_number("Seventeen million six hundred two thousand two hundred dollars") == 17_602_200
+    assert words_to_number("One hundred and five") == 105
+    assert words_to_number("about ten") is None

@@ -39,6 +39,19 @@ class RfpFacts(BaseModel):
     boq: list[dict] = []
     provisional: dict[str, float] = {}
     particulars: dict[str, str] = {}
+    security_pct: float | None = None
+    security_days: int | None = None
+    addenda: list[str] = []
+    words_prevail: bool = False
+    turnover_multiple: float | None = None
+    licence_class: str | None = None
+    preference_pct: float = 0.0
+    home_state: str | None = None
+    technical_pass: float | None = None
+    methodology_cutoff: float | None = None
+    standstill_days: int | None = None
+    # Values the document states in more than one place, for the consistency check: key -> [(value, page, quote)].
+    stated: dict[str, list[tuple[str, int, str]]] = {}
     entries: list[Entry] = []
 
 
@@ -64,6 +77,7 @@ def read_rfp(doc: Document) -> RfpFacts:
                 pg.number, m.group(0))
         if m := re.search(r"remain valid for (\d+) days from the submission date", t):
             f.validity_days = int(m.group(1))
+            f.stated.setdefault("Tender validity (days)", []).append((m.group(1), pg.number, m.group(0)))
             add("Submission", "Validity", f"At least {m.group(1)} days; a shorter period is not responsive", pg.number, m.group(0))
         if m := re.search(r"The Letter of Tender shall be signed by an authorized signatory, and a power of attorney shall be provided", t):
             add("Submission", "Signature", "Letter of Tender signed, with a power of attorney for each signatory", pg.number, m.group(0))
@@ -88,11 +102,44 @@ def read_rfp(doc: Document) -> RfpFacts:
                 role, years = part.rsplit(", ", 1)
                 f.key_roles.append({"role": role, "years": int(years.split()[0]), "page": pg.number, "quote": part})
             add("Technical", "Key personnel", m.group(1), pg.number, m.group(0))
+        if m := re.search(r"tender security of not less than (\d+(?:\.\d+)?)% of the Combined Offer, valid for at least (\d+) days", t):
+            f.security_pct, f.security_days = float(m.group(1)), int(m.group(2))
+            f.stated.setdefault("Tender security validity (days)", []).append((m.group(2), pg.number, m.group(0)))
+            add("Submission", "Tender security", f"At least {m.group(1)}% of the Combined Offer, valid for {m.group(2)} days", pg.number, m.group(0))
+        if m := re.search(r"Addenda (No\. \d+(?: and No\. \d+)*) have been issued", t):
+            f.addenda = re.findall(r"No\. (\d+)", m.group(1))
+            add("Submission", "Addenda", f"Addenda {', '.join(f.addenda)} issued; each must be acknowledged", pg.number, m.group(0))
+        if m := re.search(r"If they differ, the amount in words prevails", t):
+            f.words_prevail = True
+            add("Commercial", "Words and figures", "Words prevail over figures", pg.number, m.group(0))
+        if m := re.search(r"The technical tender \(Volume 2\) shall contain no prices", t):
+            add("Submission", "Envelopes", "No prices in the technical tender", pg.number, m.group(0))
+        if m := re.search(r"General Building Contractor licence, (Class \w)", t):
+            f.licence_class = m.group(1)
+        if m := re.search(r"Average annual turnover over 2023 to 2025 shall be at least (\d+(?:\.\d+)?) times the Combined Offer", t):
+            f.turnover_multiple = float(m.group(1))
+            add("Qualification", "Eligibility", f"Contractor licence {f.licence_class}; tax clearance valid; average turnover at least "
+                f"{m.group(1)} times the Combined Offer", pg.number, m.group(0))
+        if m := re.search(r"not registered in the (State of \w+) is increased by (\d+(?:\.\d+)?)%", t):
+            f.home_state, f.preference_pct = m.group(1), float(m.group(2))
+            add("Commercial", "Domestic preference", f"{m.group(2)}% added, for comparison only, to tenderers outside the {m.group(1)}",
+                pg.number, m.group(0))
+        if m := re.search(r"fewer than (\d+) of the 40 technical points, or fewer than (\d+) points for methodology", t):
+            f.technical_pass, f.methodology_cutoff = float(m.group(1)), float(m.group(2))
+            add("Evaluation", "Technical threshold", f"At least {m.group(1)} of 40 technical points and {m.group(2)} for methodology; "
+                "otherwise the commercial tender is not evaluated", pg.number, m.group(0))
+        if m := re.search(r"standstill period of (\d+) days", t):
+            f.standstill_days = int(m.group(1))
+            add("Award", "Standstill", f"{m.group(1)} days between notification and signature", pg.number, m.group(0))
         for table in pg.tables:
             head = table[0] if table else ()
             if head[:3] == ("Volume", "Form", "Requirement"):
                 for row in table[1:]:
                     f.forms.append({"volume": row[0], "form": row[1], "note": row[2], "page": pg.number, "quote": _row(row)})
+                    for key, pat in (("Tender validity (days)", r"tender valid for (\d+) days"),
+                                     ("Tender security validity (days)", r"% of the Combined Offer, valid for (\d+) days")):
+                        if (mm := re.search(pat, row[2])):
+                            f.stated.setdefault(key, []).append((mm.group(1), pg.number, _row(row)))
                     add("Content", row[1], row[2] or "Required", pg.number, _row(row))
             elif head[:2] == ("Ref", "Requirement"):
                 for row in table[1:]:

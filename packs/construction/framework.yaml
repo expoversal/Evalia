@@ -10,7 +10,7 @@ streams:
   - {id: technical, title: Technical, scored: true, max: 40}
   - {id: commercial, title: Commercial, scored: true, max: 50}
   - {id: contract, title: Contract, scored: true, max: 10}
-  - {id: integrity, title: Integrity and due diligence, scored: false}
+  - {id: integrity, title: Qualification and integrity, scored: false}
 
 criteria:
   - {id: T1, stream: technical, title: Quality of submission, max: 5, base: 5,
@@ -114,6 +114,15 @@ thresholds:
 
 # Optional client input: the pre-tender estimate for the evaluated (combined) price.
 pre_tender_estimate: 18300000
+
+# Due diligence on the preferred tenderer, after ranking and before award.
+due_diligence:
+  - Contact the owners named in the reference projects and confirm scope, value and performance
+  - Verify the contractor licence and tax clearance with the issuing authorities
+  - Obtain and review audited accounts and a bank reference
+  - Confirm the key personnel are available for the programme
+  - Check the tenderer and its directors against debarment and sanctions lists
+  - Confirm answers to every outstanding clarification
 
 sensitivity:
   As published (40/50/10): {technical: 40, commercial: 50, contract: 10}

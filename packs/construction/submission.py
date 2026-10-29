@@ -73,6 +73,15 @@ class SubmissionFacts(BaseModel):
     cashflow: list[float] = []
     cashflow_cited: Cited | None = None
     volume_pages: dict[str, list[int]] = {}
+    words: Cited | None = None
+    addenda: Cited | None = None
+    security_amount: float | None = None
+    security_days: int | None = None
+    security: Cited | None = None
+    home_state: Cited | None = None
+    licence: dict | None = None
+    tax_certificate: dict | None = None
+    turnover: list[Cited] = []
 
 
 def _row(row) -> str:
@@ -108,6 +117,26 @@ def read_submission(doc: Document, form_titles: list[str]) -> SubmissionFacts:
             sig = next((ln for ln in lines if ln.startswith("Signed:")), None)
             if sig and sig != "Signed:":
                 s.letter_signed = Marker(present=True, page=pg.number, quote=sig)
+            if m := re.search(r"Combined Offer in words: (.+?)\.", t):
+                s.words = Cited(text=m.group(1), page=pg.number, quote=m.group(0))
+            if m := re.search(r"We acknowledge (Addend[a-z]+ No\. \d+(?: and No\. \d+)*)", t):
+                s.addenda = Cited(text=" ".join(re.findall(r"No\. (\d+)", m.group(1))), page=pg.number, quote=m.group(0))
+        if "Tender Security" in lines:
+            s.forms.setdefault("Tender Security", Marker(present=True, page=pg.number, quote="Tender Security"))
+            a = re.search(r"Amount: (\$[\d,.]+)", t)
+            v = re.search(r"This security is valid for (\d+) days from the submission date", t)
+            if a and v:
+                s.security_amount, s.security_days = money(a.group(1)), int(v.group(1))
+                s.security = Cited(text=a.group(1), page=pg.number, quote=v.group(0))
+                s.forms["Tender Security"] = Marker(present=True, page=pg.number, quote=a.group(0))
+        if m := re.search(r"Registered in: (.+?\(fictional\))", t):
+            s.home_state = Cited(text=m.group(1), page=pg.number, quote=m.group(0))
+        if m := re.search(r"General Building Contractor licence (\S+) (Class \w) (\d{1,2} \w+ \d{4})", t):
+            s.licence = {"number": m.group(1), "class": m.group(2), "expiry": m.group(3), "page": pg.number, "quote": m.group(0)}
+        if m := re.search(r"Tax clearance certificate (\S+) (\d{1,2} \w+ \d{4})", t):
+            s.tax_certificate = {"number": m.group(1), "expiry": m.group(2), "page": pg.number, "quote": m.group(0)}
+        for m in re.finditer(r"^(20\d\d) (\$[\d,]+\.\d\d)$", pg.text, re.M):
+            s.turnover.append(Cited(text=m.group(2), page=pg.number, quote=m.group(0)))
         if "Form R - Anti-collusion Certificate" in lines:
             sig = next((ln for ln in lines if ln.startswith("Signed:")), None)
             s.collusion_signed = Marker(present=bool(sig and sig != "Signed:"), page=pg.number, quote=sig or "")

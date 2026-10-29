@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 from evalia.engine.documents import Document
 from evalia.engine.findings import Evidence, Finding, verify_evidence
+from evalia.engine.numbers import words_to_number
 from evalia.engine.rules import BandRule, RecordRule
 from evalia.engine.scoring import (apply_correction_rule, cheapest_award, deviations_from_median, front_loading,
                                    identical_values)
@@ -45,6 +46,7 @@ class Framework(BaseModel):
     pre_tender_estimate: float | None = None
     sensitivity: dict[str, dict[str, float]]
     not_assessed: list[str]
+    due_diligence: list[str] = []
 
 
 def load_framework() -> Framework:
@@ -163,6 +165,43 @@ def check_gate(rfp: RfpFacts, s: SubmissionFacts, doc: Document, sink: _Sink, fw
         sink.add("gate", kind="presence", basis="Fact", check="Anti-collusion certificate", title="Anti-collusion certificate not signed",
                  detail="Form R is present but unsigned, or missing.", severity="critical",
                  clarify="Please provide a signed anti-collusion certificate (Form R).")
+    if rfp.security_pct is not None:
+        need = round((s.combined or 0) * rfp.security_pct / 100, 2)
+        if s.security_amount is None:
+            sink.add("gate", check="Tender security", kind="presence", basis="Fact", title="Tender security not found",
+                     detail=f"A tender security of {rfp.security_pct:g}% of the Combined Offer is required.", severity="critical")
+        else:
+            short_amt, short_days = s.security_amount < need, s.security_days < (rfp.security_days or 0)
+            problems = ([f"amount {_usd(s.security_amount)} is below {_usd(need)}"] if short_amt else []) + (
+                [f"valid for {s.security_days} days, not the {rfp.security_days} required"] if short_days else [])
+            sink.add("gate", check="Tender security", kind="threshold", basis="Fact",
+                     title="Tender security: " + ("; ".join(problems) if problems else f"{_usd(s.security_amount)}, {s.security_days} days"),
+                     detail=f"Required: at least {rfp.security_pct:g}% of the Combined Offer ({_usd(need)}), valid for "
+                            f"{rfp.security_days} days." + (" A security that does not cover the tender's validity cannot be "
+                            "called on later in the evaluation." if short_days else ""),
+                     evidence=ev(d, s.forms["Tender Security"].page, s.forms["Tender Security"].quote) + ev(d, s.security.page, s.security.quote),
+                     severity="critical" if problems else "info",
+                     clarify=(f"Please provide a tender security valid for {rfp.security_days} days." if short_days else None))
+    if rfp.addenda:
+        got = set(s.addenda.text.split()) if s.addenda else set()
+        missing = [a for a in rfp.addenda if a not in got]
+        sink.add("gate", check="Addenda acknowledged", kind="set", basis="Fact",
+                 title="All addenda acknowledged" if not missing else f"Addendum No. {', '.join(missing)} not acknowledged",
+                 detail=f"Addenda issued: {', '.join(rfp.addenda)}." + ("" if not missing else " A tender that does not acknowledge an "
+                        "addendum may not have priced it."),
+                 evidence=ev(d, s.addenda.page, s.addenda.quote) if s.addenda else [], severity="critical" if missing else "info",
+                 clarify=(f"Please confirm that your tender includes Addendum No. {', '.join(missing)} at no change to the price."
+                          if missing else None))
+    tech_pages = [pg for pg in doc.pages if pg.number in s.volume_pages.get("Volume 2", [])
+                  and "Form K - Relevant Experience" not in pg.text and "Owner Performance Evaluation" not in pg.text]
+    leaks = [(pg.number, m.group(0)) for pg in tech_pages for m in re.finditer(r"[^.]*\$[\d,]+(?:\.\d\d)?[^.]*\.", normalise(pg.text))]
+    sink.add("gate", check="No prices in technical tender", kind="presence", basis="Fact",
+             title="Price found in the technical tender" if leaks else "No prices in the technical tender",
+             detail=("The request for proposal requires Volume 2 to contain no prices, so that technical evaluators are not "
+                     "influenced by price. Evaluators should be told to disregard it." if leaks
+                     else "No currency amounts in Volume 2, apart from contract values of past projects."),
+             evidence=[e for pn, q in leaks[:2] for e in ev(d, pn, q.strip())], severity="attention" if leaks else "info",
+             method="currency scan (deterministic)")
     form_g = s.forms.get("Form G - Proposed Changes to Tender Requirements")
     for pg in doc.pages:
         if form_g and pg.number == form_g.page:
@@ -311,6 +350,22 @@ def check_commercial(rfp: RfpFacts, s: SubmissionFacts, doc: Document, sink: _Si
     disc = (s.discount_pct or 0.0) / 100
     sum_stated = sum(v["stated"] for v in lots.values())
     combined_stated = s.combined or 0.0
+    in_words = words_to_number(s.words.text) if s.words else None
+    if s.words and in_words is not None and abs(in_words - combined_stated) > 0.5:
+        sink.add("commercial", check="Words and figures", kind="arithmetic", basis="Fact",
+                 title=f"Words state {_usd(in_words)}; figures state {_usd(combined_stated)}",
+                 detail=("Under the request for proposal the amount in words prevails, so the Combined Offer is taken as "
+                         f"{_usd(in_words)}, a difference of {_usd(in_words - combined_stated)}." if rfp.words_prevail else
+                         "The request for proposal states no rule; the panel must decide which governs."),
+                 evidence=ev(d, s.words.page, s.words.quote) + (ev(d, s.offer.page, s.offer.quote) if s.offer else []),
+                 severity="critical",
+                 clarify=f"Your Combined Offer in words ({s.words.text}) differs from the figures ({_usd(combined_stated)}). "
+                         "Please confirm that you accept the amount in words.")
+        if rfp.words_prevail:
+            combined_stated = in_words
+    elif s.words:
+        sink.add("commercial", check="Words and figures", kind="arithmetic", basis="Fact", title="Words agree with figures",
+                 detail=f"The Combined Offer in words matches {_usd(combined_stated)}.", evidence=ev(d, s.words.page, s.words.quote))
     expected_combined = round(sum_stated * (1 - disc), 2)
     if s.combined is not None and abs(expected_combined - combined_stated) > 1:
         sink.add("commercial", kind="arithmetic", basis="Fact", check="Arithmetic", title="Combined offer does not equal the lots less the discount",
@@ -329,8 +384,15 @@ def check_commercial(rfp: RfpFacts, s: SubmissionFacts, doc: Document, sink: _Si
     if normalisation:
         notes.append(f"Provisional sums restored to the Employer's amounts: {_usd(normalisation)} added.")
     notes.append(f"Evaluated price: {_usd(evaluated)}.")
-    sink.add("commercial", criterion="P1", kind="price", basis="Fact", check="Evaluated price", title=f"Evaluated price {_usd(evaluated)}",
-             detail=" ".join(notes), value=evaluated,
+    comparison = evaluated
+    outside = bool(rfp.home_state and s.home_state and rfp.home_state not in s.home_state.text)
+    if outside and rfp.preference_pct:
+        comparison = round(evaluated * (1 + rfp.preference_pct / 100), 2)
+        notes.append(f"Registered outside the {rfp.home_state}: {rfp.preference_pct:g}% added for comparison only, giving "
+                     f"{_usd(comparison)}. The contract price is unaffected.")
+    sink.add("commercial", criterion="P1", kind="price", basis="Fact", check="Evaluated price",
+             title=f"Evaluated price {_usd(evaluated)}" + (f"; {_usd(comparison)} for comparison" if comparison != evaluated else ""),
+             detail=" ".join(notes), value=comparison,
              evidence=ev(d, s.combined_cited.page, s.combined_cited.quote) if s.combined_cited else [],
              severity="attention" if (normalisation or abs(combined_corrected - combined_stated) > 0.01) else "info")
     if s.cashflow:
@@ -357,6 +419,7 @@ def check_commercial(rfp: RfpFacts, s: SubmissionFacts, doc: Document, sink: _Si
                         f"{fw.thresholds['abnormally_low']:.0%}: seek an explanation of the price." if low else ""),
                  severity="critical" if low else "info", method="comparison with the client's estimate")
     return {"lots": lots, "sum_stated": sum_stated, "discount_pct": s.discount_pct or 0.0, "combined_stated": combined_stated,
+            "words": in_words, "comparison": comparison, "preference": outside and bool(rfp.preference_pct),
             "combined_corrected": combined_corrected, "normalisation": normalisation, "evaluated": evaluated,
             "cashflow": s.cashflow}
 
@@ -397,6 +460,36 @@ def check_contract(rfp: RfpFacts, s: SubmissionFacts, doc: Document, sink: _Sink
 
 
 # --- Integrity ------------------------------------------------------------------------------------------------------
+
+def check_qualification(rfp: RfpFacts, s: SubmissionFacts, doc: Document, sink: _Sink, deadline: str) -> None:
+    d, due = doc.doc_id, datetime.fromisoformat(deadline)
+    for label, rec in (("General Building Contractor licence", s.licence), ("Tax clearance certificate", s.tax_certificate)):
+        if not rec:
+            sink.add("integrity", check=label, kind="presence", basis="Fact", title=f"{label} not found",
+                     detail="Form B does not give it.", severity="critical")
+            continue
+        expiry = datetime.strptime(rec["expiry"], "%d %B %Y")
+        problems = []
+        if expiry < due:
+            problems.append(f"expired on {rec['expiry']}, before the submission date")
+        if rec.get("class") and rfp.licence_class and rec["class"] != rfp.licence_class:
+            problems.append(f"{rec['class']}, not the {rfp.licence_class} required")
+        sink.add("integrity", check=label, kind="threshold", basis="Fact",
+                 title=f"{label}: " + ("; ".join(problems) if problems else f"valid until {rec['expiry']}"),
+                 detail=("It must be valid on the submission date." + (" An expired certificate makes the tenderer ineligible "
+                         "unless the panel accepts a renewal as a clarification." if problems else "")),
+                 evidence=ev(d, rec["page"], rec["quote"]), severity="critical" if problems else "info",
+                 clarify=(f"Please provide your current {label.lower()}, valid on the submission date." if problems else None))
+    if rfp.turnover_multiple and s.turnover:
+        values = [float(c.text.replace("$", "").replace(",", "")) for c in s.turnover]
+        avg, need = sum(values) / len(values), rfp.turnover_multiple * (s.combined or 0)
+        low = avg < need
+        sink.add("integrity", check="Financial standing", kind="threshold", basis="Fact",
+                 title=f"Average turnover {_usd(avg)}" + (f", below the {_usd(need)} required" if low else ""),
+                 detail=f"Average over {len(values)} years against {rfp.turnover_multiple:g} times the Combined Offer ({_usd(need)}). "
+                        + ("A tenderer below the threshold may lack the capacity to carry a contract of this size." if low else ""),
+                 evidence=[e for c in s.turnover for e in ev(d, c.page, c.quote)], severity="critical" if low else "info")
+
 
 def check_integrity_single(s: SubmissionFacts, doc: Document, sink: _Sink, fw: Framework) -> None:
     d = doc.doc_id
@@ -464,6 +557,7 @@ def evaluate_all(rfp: RfpFacts, rfp_doc: Document, subs: list[tuple[SubmissionFa
         coverage[s.tenderer] = check_technical(rfp, s, doc, sink, fw)
         commercial[s.tenderer] = check_commercial(rfp, s, doc, sink, fw)
         check_contract(rfp, s, doc, sink, fw, commercial[s.tenderer]["evaluated"])
+        check_qualification(rfp, s, doc, sink, receipts["deadline"])
         check_integrity_single(s, doc, sink, fw)
     pairs = check_integrity_cross(sinks, fw)
 

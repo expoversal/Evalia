@@ -64,7 +64,7 @@ The "seen in" column cites the reference documents. In the prototype column:
 | Check | Rule enforced | Seen in | Prototype |
 |---|---|---|---|
 | Internal contradictions | The same requirement stated with different values is flagged and resolved before sign-off | B, C, D, E, F | Built (validity, security validity) |
-| Dossier completeness | Every annex the instructions cite is present | A, B, C, D, E | Not yet |
+| Dossier completeness | Every annex the instructions cite is present | A, B, C, D, E | Built |
 | Requirements register | Every requirement extracted with page and verified quote | All | Built |
 
 ### Receipt and opening
@@ -72,24 +72,24 @@ The "seen in" column cites the reference documents. In the prototype column:
 | Check | Rule enforced | Seen in | Prototype |
 |---|---|---|---|
 | Late receipt | Receipt time against the deadline; the panel decides where the rules give discretion | All | Built |
-| One tender per tenderer | All tenders from a tenderer who submits twice are rejected | F | Not yet |
-| Authority at opening | A representative's letter of authority is in order | E | Not yet |
+| One tender per tenderer | All tenders from a tenderer who submits twice are rejected | F | Built |
+| Authority at opening | A representative's letter of authority is in order | E | Built (from the opening record) |
 
 ### Responsiveness
 
 | Check | Rule enforced | Seen in | Prototype |
 |---|---|---|---|
 | Required documents | Set difference between required and submitted forms | All | Built |
-| Documents per entity | Each joint-venture member, subcontractor and capacity provider supplies its own set | D, F | Not yet |
+| Documents per entity | Each joint-venture member, subcontractor and capacity provider supplies its own set | D, F | Built (subcontractors' tax clearance) |
 | Signature and authority | Letter of tender signed; power of attorney present | All | Built |
 | Validity period | At least the period required | All | Built |
 | Tender security | Amount, validity beyond the tender validity, instrument type, currency | B, D, E, F | Built (amount, validity) |
 | Addenda acknowledged | Set difference between addenda issued and acknowledged | B, E, F | Built |
 | No prices in the technical envelope | Currency scan of the technical volume | B, C | Built |
-| Page limits | Pages per section within the limit | B, C | Not yet |
-| Alternatives | Considered only alongside a compliant base tender, or not at all | A, B, D, E, F | Not yet |
+| Page limits | Pages per section within the limit | B, C | Built |
+| Alternatives | Considered only alongside a compliant base tender, or not at all | A, B, D, E, F | Built (presence) |
 | Qualifications outside the deviations form | Not considered; the tenderer is asked to confirm or withdraw | A, B | Built |
-| Site visit | Certificate present, where the visit is mandatory | C, F | Not yet |
+| Site visit | Certificate present, where the visit is mandatory | C, F | Built |
 
 ### Technical
 
@@ -100,9 +100,9 @@ The "seen in" column cites the reference documents. In the prototype column:
 | Key personnel | Roles named with minimum experience | B, E, F | Built |
 | Experience | Thresholds checked against owners' own evaluations, not claims | B, C, F | Built |
 | Technical threshold | Pass mark and cut-off per criterion before commercial opening | F | Built |
-| Equipment | Required items and quantities, owned or leased | F | Not yet |
-| Specification values | Offered values against the specified minimums and maximums | E | Not yet |
-| Local workforce quota | Percentage of nationals in the team at least the quota | B, C | Not yet |
+| Equipment | Required items and quantities, owned or leased | F | Built |
+| Specification values | Offered values against the specified minimums and maximums | E | Built |
+| Local workforce quota | Percentage of nationals in the team at least the quota | B, C | Built |
 
 ### Commercial
 
@@ -111,11 +111,11 @@ The "seen in" column cites the reference documents. In the prototype column:
 | Extensions and totals | Quantity times rate; bill and summary totals | All | Built |
 | Correction rule | Applied as the tender states it | All | Built (lower of stated and corrected) |
 | Words against figures | Applied with the tender's precedence | B, C, D, E | Built (words prevail) |
-| Form of tender against the priced bill | Totals agree; the stated precedence applies | B, E | Not yet |
-| Structure and unpriced items | Items and quantities as issued; blank or zero rates flagged | B, D, E, F | Built (structure); not yet (unpriced) |
+| Form of tender against the priced bill | Totals agree; the stated precedence applies | B, E | Built |
+| Structure and unpriced items | Items and quantities as issued; blank or zero rates flagged | B, D, E, F | Built |
 | Provisional sums | Carried at the employer's amounts; normalised | A, F | Built |
 | Lots and discounts | Cheapest award across lots, with conditional discounts | A, D | Built |
-| Currency and taxes | Single currency; taxes shown as required | C, D, E, F | Not yet |
+| Currency and taxes | Single currency; taxes shown as required | C, D, E, F | Built |
 | Rate consistency | Outliers against the median; front-loading; identical items priced alike | F | Built (outliers, front-loading) |
 | Domestic preference | Margin added for comparison only | F | Built |
 | Abnormally low price | Against the pre-tender estimate | None explicitly | Built |
@@ -132,10 +132,10 @@ The "seen in" column cites the reference documents. In the prototype column:
 |---|---|---|---|
 | Licences and certificates | Class as required; valid on the submission date | B, C, E, F | Built |
 | Financial standing | Turnover as a multiple of the price; liquid assets | F (B and D require evidence only) | Built (turnover) |
-| Accounts | Years covered; latest not older than allowed | B, F | Not yet |
+| Accounts | Years covered; latest not older than allowed | B, F | Built (years covered) |
 | Litigation and terminations | Disclosed matters above a threshold | A, B, F | Built |
-| Conflicts and ownership | Declarations present; beneficial owners disclosed | B, D, F | Not yet (form presence only) |
-| Joint-venture shares | Each partner and the lead meet minimum shares | F | Not yet |
+| Conflicts and ownership | Declarations present; beneficial owners disclosed; owners shared across tenderers | B, D, F | Built |
+| Joint-venture shares | Each partner and the lead meet minimum shares | F | Built |
 | Cross-tender indicators | Identical rates, shared subcontractors | None (Evalia's addition) | Built |
 
 ### Decide and award
@@ -146,12 +146,14 @@ The "seen in" column cites the reference documents. In the prototype column:
 | Award method | Weighted, or lowest evaluated price among compliant tenders | All | Built (both compared) |
 | Due diligence | Verification of the preferred tenderer before award | D, F | Built (checklist) |
 | Notification and standstill | All tenderers notified; no signature before the standstill ends | F, demo tender | Built |
-| Negotiation | Only where the rules allow it, and recorded | C, E | Not yet |
+| Negotiation | Only where the rules allow it, and recorded | C, E | Built (the rule is shown at award; no negotiation record yet) |
 
 ## 4. What this means for version one
 
+**Fact.** Every check in the catalogue now runs in the prototype on the fictional documents (29 October 2026: `python -m pytest`, 30 passed). Several run in a narrower form than the catalogue describes; the "Prototype" column says how.
+
 **Interpretation.**
-- The checks marked "not yet" are mostly deterministic and small.
+- The remaining work is depth, not breadth: wider document matrices per entity, negotiation records, and readers for real document layouts.
 - The two stand-ins (requirement coverage and risk-head classification) are where a model earns its place. They should be the first model readings tested on real documents, once a product key is configured.
 - The variety of precedence rules and award methods argues for one framework file per tender, proposed from the tender documents and signed off by the client. That is the design the prototype now follows.
 

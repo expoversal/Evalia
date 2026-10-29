@@ -173,3 +173,31 @@ def test_qualification(out):
     assert "expired on 31 August 2026" in of(out, H, "Tax clearance certificate")[0]["title"]
     assert of(out, H, "Financial standing")[0]["severity"] == "critical"
     assert of(out, N, "Financial standing")[0]["severity"] == "info"
+
+
+def test_dossier_and_opening(out):
+    assert [(x["annex"], x["title"]) for x in out["rfp_missing"]] == [("4", "Drawings")]
+    assert all(f["severity"] == "info" for f in out["findings"] if f["check"] in ("One tender per tenderer", "Letter of authority at opening"))
+
+
+def test_further_responsiveness(out):
+    assert of(out, C, "Site visit")[0]["severity"] == "critical" and of(out, N, "Site visit")[0]["severity"] == "info"
+    assert "Lakeline Services" in of(out, H, "Documents for each entity")[0]["title"]
+    assert "sales tax not stated separately" in of(out, C, "Currency and tax")[0]["title"]
+    assert of(out, N, "Page limits")[0]["severity"] == "info"
+    assert of(out, N, "Alternatives")[0]["title"] == "No alternative tender"
+
+
+def test_further_technical_and_commercial(out):
+    assert of(out, C, "Plant")[0]["title"] == "Plant short: Scissor lift (3 of 4); Goods hoist (0 of 1)"
+    stc = [f for f in of(out, H, "Specification values") if "STC" in f["title"]][0]
+    assert stc["severity"] == "critical" and "minimum 55" in stc["title"]
+    assert "below the 30% required" in of(out, H, "Local workforce")[0]["title"]
+    assert all(f["severity"] == "info" for f in out["findings"] if f["check"] in ("Letter against schedules", "Unpriced items"))
+
+
+def test_further_qualification(out):
+    assert "2025 missing" in of(out, C, "Accounts")[0]["title"]
+    assert "Pine Street Builders 20%" in of(out, H, "Joint-venture shares")[0]["title"]
+    assert out["owners"] == [{"a": C, "b": H, "owner": "Marcus Ellery (fictional)"}]
+    assert of(out, C, "Shared ownership")[0]["severity"] == "critical"

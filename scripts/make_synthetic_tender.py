@@ -86,7 +86,10 @@ FORMS = [
     ("Volume 1", "Form P - Termination of Contracts", "disclose terminations in the last five years"),
     ("Volume 1", "Form R - Anti-collusion Certificate", "signed"),
     ("Volume 1", "Form S - Conflict of Interest Declaration", ""),
+    ("Volume 1", "Site Visit Certificate", "mandatory"),
     ("Volume 2", "Form C - Key Personnel", ""),
+    ("Volume 2", "Form D - Plant and Workforce", ""),
+    ("Volume 2", "Form T - Technical Data", ""),
     ("Volume 2", "Form E - Programme", ""),
     ("Volume 2", "Form F - Proposed Subcontractors", ""),
     ("Volume 2", "Form H - Methodology", ""),
@@ -100,6 +103,11 @@ FORMS = [
     ("Volume 3", "Cash Flow Forecast", "monthly, for the combined offer"),
 ]
 
+PLANT = [("Scissor lift", 4), ("Telehandler", 1), ("Goods hoist", 1)]
+PERFORMANCE = [("Sound insulation between guest rooms (STC)", "minimum", "55"),
+               ("Lighting power density in guest rooms (W/sq ft)", "maximum", "0.9")]
+DOSSIER = [("1", "Employer's Requirements", "Section 4"), ("2", "Pricing schedules", "Section 5"),
+           ("3", "Contract particulars", "Section 6"), ("4", "Drawings", "Section 9")]
 KEY_ROLES = [("Project Manager", 10), ("Site Manager", 8), ("HSE Manager", 5), ("BIM Coordinator", 3)]
 
 
@@ -143,6 +151,15 @@ class Tenderer:
     security: tuple[float, int] = (0.0, 150)
     addenda: str = "Addenda No. 1 and No. 2"
     words: str = ""
+    site_visit: bool = True
+    plant: list[tuple[str, int, str]] = field(default_factory=list)
+    resident_pct: int = 40
+    technical_data: tuple[str, str] = ("55", "0.9")
+    sales_tax: bool = True
+    accounts: str = "2023, 2024, 2025"
+    owners: str = ""
+    jv: list[tuple[str, str, int]] = field(default_factory=list)
+    sub_tax: list[str] = field(default_factory=list)
     cashflow_pct: list[float] = field(default_factory=list)
     projects: list[Project] = field(default_factory=list)
 
@@ -164,6 +181,10 @@ TENDERERS = [
         turnover=(44_500_000, 47_200_000, 51_800_000),
         security=(360_000.00, 150),
         words="Seventeen million nine hundred thirty-four thousand dollars",
+        plant=[("Scissor lift", 4, "Owned"), ("Telehandler", 1, "Owned"), ("Goods hoist", 1, "Leased")],
+        resident_pct=41, technical_data=("56", "0.8"),
+        owners="Dana Whitlock (fictional), 60%; Lakeport Capital (fictional), 40%",
+        sub_tax=["31 December 2026", "30 September 2027"],
         emr=0.78,
         programme_weeks=38,
         methodology=[
@@ -206,6 +227,11 @@ TENDERERS = [
         security=(355_000.00, 90),
         addenda="Addendum No. 1",
         words="Seventeen million six hundred two thousand two hundred dollars",
+        site_visit=False,
+        plant=[("Scissor lift", 3, "Owned"), ("Telehandler", 1, "Leased")],
+        resident_pct=33, technical_data=("55", "0.9"), sales_tax=False, accounts="2022, 2023, 2024",
+        owners="Marcus Ellery (fictional), 70%; Westmoor Holdings (fictional), 30%",
+        sub_tax=["31 March 2027", "31 January 2027"],
         validity_days=90,
         power_of_attorney=False,
         emr=0.95,
@@ -247,6 +273,11 @@ TENDERERS = [
         turnover=(29_800_000, 31_500_000, 33_100_000),
         security=(391_300.00, 150),
         words="Nineteen million five hundred fifty-six thousand dollars",
+        plant=[("Scissor lift", 4, "Leased"), ("Telehandler", 1, "Leased"), ("Goods hoist", 1, "Leased")],
+        resident_pct=22, technical_data=("50", "0.85"),
+        owners="Priya Natarajan (fictional), 55%; Marcus Ellery (fictional), 15%; Pine Street Builders (fictional), 30%",
+        jv=[("Harbor Interiors (fictional)", "Lead member", 80), ("Pine Street Builders (fictional)", "Member", 20)],
+        sub_tax=["31 March 2027", ""],
         emr=1.12,
         programme_weeks=46,
         methodology=[
@@ -353,6 +384,15 @@ def build_rfp(path: Path) -> None:
         p("2.11 Eligibility. Each tenderer shall hold a General Building Contractor licence, Class A, and a tax clearance "
           "certificate, both valid on the submission date. Average annual turnover over 2023 to 2025 shall be at least 2 times "
           "the Combined Offer."),
+        p("2.13 Site visit. Attendance at the site visit is mandatory, and each tender shall include the Site Visit Certificate."),
+        p("2.14 Joint ventures and subcontractors. Each member of a joint venture shall hold at least 25% and the lead member at "
+          "least 40%. Each named subcontractor shall provide its own tax clearance certificate, valid on the submission date."),
+        p("2.15 Prices shall be in US dollars, excluding sales tax, which shall be stated separately on the Combined Offer."),
+        p("2.16 Alternative tenders are considered only alongside a compliant base tender."),
+        p("2.17 Form H shall not exceed 2 pages. The Employer will not negotiate with tenderers."),
+        p("2.18 Audited accounts for 2023 to 2025 shall be provided, and Form B shall name every owner holding 10% or more."),
+        p("2.19 Only one tender per tenderer will be considered. A representative attending the opening shall carry a letter of "
+          "authority."),
         p("2.12 Domestic preference. For comparison only, the evaluated price of a tenderer not registered in the State of "
           "Lakeshore is increased by 5%."),
         PageBreak(),
@@ -363,6 +403,10 @@ def build_rfp(path: Path) -> None:
         grid([["Ref", "Requirement"]] + [[r, t] for r, t in REQUIREMENTS], [50, 650]),
         p("4.9 Key personnel. The Tenderer shall name the following key personnel with the minimum years of relevant experience "
           "shown: " + "; ".join(f"{r}, {y} years" for r, y in KEY_ROLES) + "."),
+        p("4.10 Minimum plant: " + "; ".join(f"{n}, {q}" for n, q in PLANT) + "."),
+        p("4.11 At least 30% of the site workforce shall be resident in the State of Lakeshore."),
+        p("4.12 Performance requirements"),
+        grid([["Parameter", "Limit", "Value"]] + [list(r) for r in PERFORMANCE], [380, 100, 100]),
         PageBreak(),
         p("5. Pricing schedules", "Heading3"),
         p(f"Provisional sums: Lot A {money(PROVISIONAL['A'])}; Lot B {money(PROVISIONAL['B'])}."),
@@ -390,6 +434,9 @@ def build_rfp(path: Path) -> None:
           "methodology, is technically non-compliant and its commercial tender is not evaluated."),
         p("7.8 Award. The Employer will notify all tenderers of its decision and will not sign the Contract until a standstill "
           "period of 10 days has passed."),
+        PageBreak(),
+        p("8. Tender dossier", "Heading3"),
+        grid([["Annex", "Title", "Where"]] + [list(r) for r in DOSSIER], [60, 300, 200]),
     ]
     SimpleDocTemplate(str(path), pagesize=PAGE, title=f"RFP {REF}").build(story, onFirstPage=stamp, onLaterPages=stamp)
 
@@ -421,12 +468,21 @@ def build_tender(t: Tenderer, path: Path) -> None:
         p("Issued by: First Harbor Bank (fictional)"),
         p(f"Amount: {money(t.security[0])}"),
         p(f"This security is valid for {t.security[1]} days from the submission date."),
+    ]
+    if t.site_visit:
+        story += [PageBreak(), p("Site Visit Certificate", "Heading2"),
+                  p(f"This certifies that a representative of {t.company} attended the site visit on 20 August 2026 (fictional).")]
+    story += [
         PageBreak(), p("Form B - Tenderer Information", "Heading2"),
         p(f"Legal name: {t.company}"), p(f"Registered in: {t.home_state}"),
         grid([["Registration", "Number", "Class", "Valid until"],
               ["General Building Contractor licence", t.licence[0], t.licence[1], t.licence[2]],
               ["Tax clearance certificate", t.tax_certificate[0], "", t.tax_certificate[1]]], [220, 100, 80, 120]),
         grid([["Year", "Annual turnover"]] + [[str(y), money(v)] for y, v in zip((2023, 2024, 2025), t.turnover)], [80, 160]),
+        p(f"Audited accounts provided for: {t.accounts}."),
+        p(f"Owners holding 10% or more: {t.owners}."),
+        *([p("Joint venture members"), grid([["Member", "Role", "Share"]] + [[n, r, f"{pc}%"] for n, r, pc in t.jv], [220, 120, 80])]
+          if t.jv else []),
         PageBreak(), p("Form G - Proposed Changes to Tender Requirements", "Heading2"),
         grid([["No.", "Particular", "Tender requirement", "Proposed change", "Reason"]]
              + ([[str(n), *d] for n, d in enumerate(t.deviations, 1)] or [["", "None", "", "", ""]]),
@@ -446,7 +502,13 @@ def build_tender(t: Tenderer, path: Path) -> None:
         p("Form E - Programme", "Heading2"),
         p(f"Total programme duration for both buildings: {t.programme_weeks} weeks from the commencement date."),
         p("Form F - Proposed Subcontractors", "Heading2"),
-        grid([["Package", "Subcontractor"]] + [list(s) for s in t.subcontractors], [200, 300]),
+        grid([["Package", "Subcontractor", "Tax clearance valid until"]]
+             + [[pk, nm, tx] for (pk, nm), tx in zip(t.subcontractors, t.sub_tax)], [200, 260, 160]),
+        PageBreak(), p("Form D - Plant and Workforce", "Heading2"),
+        grid([["Item", "Quantity", "Owned or leased"]] + [[n, str(q), o] for n, q, o in t.plant], [200, 100, 140]),
+        p(f"Site workforce resident in the State of Lakeshore: {t.resident_pct}%"),
+        p("Form T - Technical Data", "Heading2"),
+        grid([["Parameter", "Offered"], [PERFORMANCE[0][0], t.technical_data[0]], [PERFORMANCE[1][0], t.technical_data[1]]], [380, 100]),
         PageBreak(), p("Form H - Methodology", "Heading2"),
         *[p(f"H.{n} {s}") for n, s in enumerate(t.methodology, 1)],
         PageBreak(), p("Form I - Quality Plan", "Heading2"),
@@ -474,6 +536,7 @@ def build_tender(t: Tenderer, path: Path) -> None:
               p(f"Sum of Lot A and Lot B: {money(a + b)}"),
               p(f"Discount for award of both lots: {t.discount_pct:g}%"),
               p(f"Combined Offer: {money(combined)}"),
+              *([p(f"Sales tax at 6%, stated separately: {money(round(combined * 0.06, 2))}")] if t.sales_tax else []),
               p("Cash Flow Forecast", "Heading2"),
               grid([["Month", *[str(m) for m in range(1, len(t.cashflow_pct) + 1)]],
                     ["Amount", *[f"{round(combined * pct / 100):,}" for pct in t.cashflow_pct]]],
@@ -490,7 +553,9 @@ def main() -> None:
         build_tender(t, OUT / f"tender_{t.key}.pdf")
     (OUT / "receipts.yaml").write_text(
         "# Tender portal receipt log, recorded by the client at opening (fictional).\n"
-        f"deadline: '2026-09-14T17:00:00'\n" + "".join(f"{k}: '{v}'\n" for k, v in RECEIPTS.items()))
+        f"deadline: '2026-09-14T17:00:00'\n" + "".join(f"{k}: '{v}'\n" for k, v in RECEIPTS.items())
+        + "# What the opening panel recorded for each tender.\nopening:\n"
+        + "".join(f"  {k}: {{envelopes: 1, letter_of_authority: true}}\n" for k in RECEIPTS))
     print(f"Wrote {len(TENDERERS) + 1} fictional documents and the receipt log to {OUT}")
 
 

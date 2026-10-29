@@ -149,6 +149,8 @@ V.documents = () => {
     + (D.rfp_issues.length ? `<div class="card" style="box-shadow:var(--sh1), inset 4px 0 0 var(--bad)"><div class="card-head"><h2>The document contradicts itself</h2><span class="aside">${D.rfp_issues.length} to resolve before sign-off</span></div>
       <p class="small muted" style="margin:0">The same requirement is stated with different values. Resolve each by addendum before tenders close, or record which value governs; you will be asked at sign-off.</p>
       ${D.rfp_issues.map(i => `<div class="clarify"><b>${esc(i.key)}:</b> ${i.values.map(v => `${esc(v.value)} (${pageLink(D.context.doc_id, v.page, v.quote)}: “${esc(v.quote)}”)`).join(" against ")}</div>`).join("")}</div>` : "")
+    + (D.rfp_missing.length ? `<div class="card" style="box-shadow:var(--sh1), inset 4px 0 0 var(--warn)"><div class="card-head"><h2>Cited but not in the dossier</h2><span class="aside">${D.rfp_missing.length} missing</span></div>
+      ${D.rfp_missing.map(x => `<div class="clarify"><b>Annex ${esc(x.annex)}, ${esc(x.title)}:</b> listed as ${esc(x.where)}, which the document does not contain (${pageLink(D.context.doc_id, x.page, x.quote)}). Issue it to all tenderers before they price, or the tenders will rest on different assumptions.</div>`).join("")}</div>` : "")
     + `<div class="card"><div class="card-head"><h2>Consistency check</h2><span class="aside">framework against the document</span></div>
       <div class="scroll"><table><thead><tr><th>Stream</th><th class="num">Request for proposal</th><th class="num">Framework</th><th>Consistent</th></tr></thead><tbody>
       ${D.framework.consistency.map(c => `<tr><td>${esc(c.stream)}</td><td class="num">${c.rfp}</td><td class="num">${c.framework}</td><td>${tick(c.match)}</td></tr>`).join("")}</tbody></table></div></div>`
@@ -319,6 +321,7 @@ V.contract = () => intro("Contract deviations", "Each change a tenderer proposes
 V.integrity = () => intro("Integrity and due diligence", "Disclosures are checked against the framework's thresholds, and the tenders are compared with each other for indicators such as identical rates or shared subcontractors. Indicators go to the procurement integrity process; they are not findings of wrongdoing.")
   + `<div class="card"><div class="card-head"><h2>Cross-tender indicators</h2></div>
     ${D.identical.map(p => `<div class="clarify"><b>${esc(short(p.a))} and ${esc(short(p.b))}:</b> identical unit rates on ${p.items.length} items (${esc(p.items.join(", "))}).</div>`).join("") || '<p class="muted small" style="margin:0">No identical rates found.</p>'}
+    ${(D.owners || []).map(o => `<div class="clarify"><b>${esc(short(o.a))} and ${esc(short(o.b))}:</b> both part-owned by ${esc(short(o.owner))}.</div>`).join("")}
     ${matrix("integrity")}</div>
   ${findingsBlock("integrity")}${next(9, "Prepare clarifications")}`;
 
@@ -375,6 +378,7 @@ V.award = () => {
   return intro("Due diligence and award", `Before award, the panel verifies what the evaluation relied on for the preferred tenderer, ${esc(short(top)).replace(/\.$/, "")}. Then every tenderer is notified, and the contract is not signed until the standstill period of ${RULES.standstill_days} days has passed.`)
     + `<div class="card"><div class="card-head"><h2>Due diligence on ${esc(short(top))}</h2><span class="aside">${done} of ${D.framework.due_diligence.length} confirmed</span></div>
       ${D.framework.due_diligence.map((item, i) => { const r = state.dd[i] || {}; return `<div class="statusrow"><label class="small"><input type="checkbox" data-dd="${i}" ${r.ok ? "checked" : ""}> ${esc(item)}</label><input type="text" data-ddnote="${i}" placeholder="Note or reference" value="${esc(r.note || "")}"></div>`; }).join("")}</div>
+    ${RULES.negotiation === false ? `<div class="notice" style="margin:0">The request for proposal rules out negotiation: the award is made on the tender as evaluated, with clarifications only.</div>` : ""}
     <div class="card"><div class="card-head"><h2>Award notices</h2><span class="aside">${state.notices ? `issued ${esc(state.notices.at)}` : "drafts"}</span></div>
       ${NAMES.map(n => `<details><summary>${esc(short(n))}: ${n === top ? "preferred tenderer" : "unsuccessful"}</summary><div class="letter">${esc(n === top
         ? `To: ${short(n)}\n\nThe Employer intends to award the Contract for ${D.context.title} to you, at your Combined Offer, subject to the standstill period of ${RULES.standstill_days} days${until ? ", ending " + until : ""}. This notice is not acceptance; the Contract is formed only on signature.`
@@ -405,7 +409,7 @@ function reportHTML(P, ranked) {
     <h3>Ranking</h3><div class="scroll"><table><thead><tr><th>Tenderer</th><th class="num">Technical</th><th class="num">Commercial</th><th class="num">Contract</th><th class="num">Total</th></tr></thead><tbody>${ranked.map(n => `<tr><td>${esc(short(n))}</td><td class="num">${fmt(P[n].technical)}</td><td class="num">${fmt(P[n].commercial)}</td><td class="num">${fmt(P[n].contract)}</td><td class="num"><strong>${fmt(total(P[n]))}</strong></td></tr>`).join("")}</tbody></table></div>
     ${NAMES.filter(n => !eligible(n)).map(n => `<p class="small" style="margin:0">${esc(short(n))}: ${!admitted(n) ? "not admitted" : "not responsive"}${statusOf(n)[!admitted(n) ? "admitted_reason" : "responsive_reason"] ? ": " + esc(statusOf(n)[!admitted(n) ? "admitted_reason" : "responsive_reason"]) : ""}.</p>`).join("")}
     ${section("receipt", "Receipt")}${section("gate", "Responsiveness")}${section("technical", "Technical")}${section("commercial", "Commercial")}${section("contract", "Contract")}${section("integrity", "Integrity")}
-    <h3>Tender documents</h3><ul>${D.rfp_issues.map(i => `<li>${esc(i.key)} was stated as ${i.values.map(v => esc(v.value)).join(" and ")}; the panel recorded ${esc(state.resolve[i.key] || "no decision")} as governing.</li>`).join("") || "<li>No contradictions found.</li>"}</ul>
+    <h3>Tender documents</h3><ul>${D.rfp_missing.map(x => `<li>Annex ${esc(x.annex)}, ${esc(x.title)}, is cited but was not in the dossier.</li>`).join("")}${D.rfp_issues.map(i => `<li>${esc(i.key)} was stated as ${i.values.map(v => esc(v.value)).join(" and ")}; the panel recorded ${esc(state.resolve[i.key] || "no decision")} as governing.</li>`).join("") || "<li>No contradictions found.</li>"}</ul>
     <h3>Due diligence</h3><ul>${D.framework.due_diligence.map((item, i) => `<li>${(state.dd[i] || {}).ok ? "✓" : "✕ Not confirmed:"} ${esc(item)}${(state.dd[i] || {}).note ? ` <span class="tiny">(${esc(state.dd[i].note)})</span>` : ""}</li>`).join("")}</ul>
     <p class="small" style="margin:0">${state.notices ? `Award notices issued on ${esc(state.notices.at)}; standstill of ${RULES.standstill_days} days.` : "Award notices not yet issued."}</p>
     <h3>Clarifications</h3><ul>${NAMES.flatMap(clarItems).filter(f => (state.clar[f.id] || {}).include !== false).map(f => { const c = state.clar[f.id] || {}; return `<li>${esc(short(f.subject))}: ${esc(f.clarify)} <span class="tiny">(${esc(c.status || "Draft")}${c.answer ? "; answer: " + esc(c.answer) : ""})</span></li>`; }).join("")}</ul>
@@ -424,7 +428,7 @@ function markdown() {
 }
 
 // --- tenderer profile -------------------------------------------------------------------------------------------------
-const OWN_ONLY = new Set(["Identical rates", "Shared subcontractors", "Rate outliers", "Receipt time", "Evaluated price", "Pre-tender estimate", "T2 Methodology score"]);
+const OWN_ONLY = new Set(["Identical rates", "Shared ownership", "One tender per tenderer", "Letter of authority at opening", "Shared subcontractors", "Rate outliers", "Receipt time", "Evaluated price", "Pre-tender estimate", "T2 Methodology score"]);
 function bidderView() {
   const name = NAMES[state.bidder];
   const fs = F.filter(f => f.subject === name && !OWN_ONLY.has(f.check) && f.severity !== "info");

@@ -27,8 +27,12 @@ def run(rfp_path: Path, tender_paths: list[Path], receipts_path: Path) -> dict:
     for path in tender_paths:
         doc = load_pdf(path)
         subs.append((read_submission(doc, form_titles), doc))
-    receipts = {k: str(v) for k, v in yaml.safe_load(Path(receipts_path).read_text()).items()}
-    result = evaluate_all(rfp, rfp_doc, subs, receipts, fw)
+    log = yaml.safe_load(Path(receipts_path).read_text())
+    opening = log.pop("opening", {}) or {}
+    receipts = {k: str(v) for k, v in log.items()}
+    result = evaluate_all(rfp, rfp_doc, subs, receipts, fw, opening)
+    sections = {h.split(".")[0] for h in rfp.headings}
+    missing = [x for x in rfp.dossier if x["where"].startswith("Section") and x["where"].split()[-1] not in sections]
 
     register = [{**e.model_dump(), "verified": quote_on_page(rfp_doc, e.page, e.quote)} for e in rfp.entries]
     consistency = []
@@ -50,7 +54,9 @@ def run(rfp_path: Path, tender_paths: list[Path], receipts_path: Path) -> dict:
         "rfp_issues": [{"key": k, "values": [{"value": v, "page": pg, "quote": q, "verified": quote_on_page(rfp_doc, pg, q)}
                                              for v, pg, q in vals]}
                        for k, vals in rfp.stated.items() if len({v for v, _, _ in vals}) > 1],
-        "rules": {"technical_pass": rfp.technical_pass, "methodology_cutoff": rfp.methodology_cutoff,
+        "rfp_missing": [{**x, "verified": quote_on_page(rfp_doc, x["page"], x["quote"])} for x in missing],
+        "owners": result["owners"],
+        "rules": {"negotiation": rfp.negotiation,"technical_pass": rfp.technical_pass, "methodology_cutoff": rfp.methodology_cutoff,
                   "preference_pct": rfp.preference_pct, "home_state": rfp.home_state, "standstill_days": rfp.standstill_days,
                   "words_prevail": rfp.words_prevail, "security_pct": rfp.security_pct, "security_days": rfp.security_days},
         "framework": {**fw.model_dump(mode="json"), "consistency": consistency,

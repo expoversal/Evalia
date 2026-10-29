@@ -19,6 +19,7 @@ class Cited(BaseModel):
     text: str
     page: int
     quote: str
+    tax: str | None = None
 
 
 class Deviation(BaseModel):
@@ -82,6 +83,18 @@ class SubmissionFacts(BaseModel):
     licence: dict | None = None
     tax_certificate: dict | None = None
     turnover: list[Cited] = []
+    plant: list[dict] = []
+    resident_pct: float | None = None
+    resident: Cited | None = None
+    technical_data: dict[str, Cited] = {}
+    sales_tax: Cited | None = None
+    accounts: Cited | None = None
+    owners: list[dict] = []
+    owners_cited: Cited | None = None
+    jv: list[dict] = []
+    form_pages: dict[str, int] = {}
+    alternative: Cited | None = None
+    currencies: list[Cited] = []
 
 
 def _row(row) -> str:
@@ -129,6 +142,21 @@ def read_submission(doc: Document, form_titles: list[str]) -> SubmissionFacts:
                 s.security_amount, s.security_days = money(a.group(1)), int(v.group(1))
                 s.security = Cited(text=a.group(1), page=pg.number, quote=v.group(0))
                 s.forms["Tender Security"] = Marker(present=True, page=pg.number, quote=a.group(0))
+        if m := re.search(r"Site workforce resident in the State of Lakeshore: (\d+)%", t):
+            s.resident_pct, s.resident = float(m.group(1)), Cited(text=m.group(1), page=pg.number, quote=m.group(0))
+        if m := re.search(r"Sales tax at [\d.]+%, stated separately: \$[\d,.]+", t):
+            s.sales_tax = Cited(text=m.group(0), page=pg.number, quote=m.group(0))
+        if m := re.search(r"Audited accounts provided for: ([\d, ]+)\.", t):
+            s.accounts = Cited(text=m.group(1), page=pg.number, quote=m.group(0))
+        if m := re.search(r"Owners holding 10% or more: (.+?)\.(?: |$)", t):
+            s.owners_cited = Cited(text=m.group(1), page=pg.number, quote=m.group(0))
+            for part in m.group(1).split("; "):
+                name, pct = part.rsplit(", ", 1)
+                s.owners.append({"name": name, "pct": float(pct.rstrip("%"))})
+        if any(ln.startswith("Alternative Tender") for ln in lines):
+            s.alternative = Cited(text="Alternative Tender", page=pg.number, quote=next(ln for ln in lines if ln.startswith("Alternative Tender")))
+        for m in re.finditer(r"(?:€|£|EUR|GBP|CAD)\s?[\d,.]+", t):
+            s.currencies.append(Cited(text=m.group(0), page=pg.number, quote=m.group(0)))
         if m := re.search(r"Registered in: (.+?\(fictional\))", t):
             s.home_state = Cited(text=m.group(1), page=pg.number, quote=m.group(0))
         if m := re.search(r"General Building Contractor licence (\S+) (Class \w) (\d{1,2} \w+ \d{4})", t):
@@ -182,7 +210,17 @@ def read_submission(doc: Document, form_titles: list[str]) -> SubmissionFacts:
                     s.personnel.append(Person(role=row[0], name=row[1], years=int(row[2]), page=pg.number, quote=_row(row)))
             elif head[:2] == ("Package", "Subcontractor"):
                 for row in table[1:]:
-                    s.subcontractors.append(Cited(text=row[1], page=pg.number, quote=_row(row)))
+                    s.subcontractors.append(Cited(text=row[1], page=pg.number, quote=_row(row),
+                                                  tax=row[2] if len(row) > 2 else None))
+            elif head[:3] == ("Item", "Quantity", "Owned or leased"):
+                for row in table[1:]:
+                    s.plant.append({"item": row[0], "qty": int(row[1]), "owned": row[2], "page": pg.number, "quote": _row(row)})
+            elif head[:2] == ("Parameter", "Offered"):
+                for row in table[1:]:
+                    s.technical_data[row[0]] = Cited(text=row[1], page=pg.number, quote=_row(row))
+            elif head[:3] == ("Member", "Role", "Share"):
+                for row in table[1:]:
+                    s.jv.append({"name": row[0], "role": row[1], "pct": float(row[2].rstrip("%")), "page": pg.number, "quote": _row(row)})
             elif head[:1] == ("No.",) and "Project" in head:
                 for row in table[1:]:
                     if row[0].strip().isdigit():
@@ -202,4 +240,9 @@ def read_submission(doc: Document, form_titles: list[str]) -> SubmissionFacts:
             elif head[:1] == ("Month",):
                 s.cashflow = [float(x.replace(",", "")) for x in table[1][1:]]
                 s.cashflow_cited = Cited(text=f"{len(s.cashflow)} months", page=pg.number, quote=_row(table[0]))
+    # Pages each form occupies: from its heading to the next form or volume heading.
+    starts = sorted((m.page, title) for title, m in s.forms.items() if m.page)
+    for i, (page, title) in enumerate(starts):
+        nxt = next((p for p, _ in starts[i + 1:] if p > page), len(doc.pages) + 1)
+        s.form_pages[title] = max(1, nxt - page)
     return s

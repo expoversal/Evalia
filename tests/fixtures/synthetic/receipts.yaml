@@ -3,3 +3,8 @@ deadline: '2026-09-14T17:00:00'
 northfield: '2026-09-14T15:42:00'
 cobalt: '2026-09-14T16:51:00'
 harborpine: '2026-09-14T17:06:00'
+# What the opening panel recorded for each tender.
+opening:
+  northfield: {envelopes: 1, letter_of_authority: true}
+  cobalt: {envelopes: 1, letter_of_authority: true}
+  harborpine: {envelopes: 1, letter_of_authority: true}

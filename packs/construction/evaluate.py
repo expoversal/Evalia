@@ -542,10 +542,180 @@ def check_integrity_cross(subs: list[tuple[SubmissionFacts, Document, _Sink]], f
     return pairs
 
 
+# --- Further checks drawn from the reference tenders (docs/06-check-catalogue.md) -------------------------------------
+
+def _date(text: str) -> datetime | None:
+    try:
+        return datetime.strptime(text.strip(), "%d %B %Y")
+    except ValueError:
+        return None
+
+
+def check_opening(rfp: RfpFacts, s: SubmissionFacts, sink: _Sink, opening: dict, count: int) -> None:
+    if rfp.one_tender:
+        sink.add("receipt", check="One tender per tenderer", kind="set", basis="Fact", method="opening record",
+                 title="One tender received" if count == 1 else f"{count} tenders received from this tenderer",
+                 detail=("Only one tender per tenderer is considered." + ("" if count == 1 else
+                         " Under the request for proposal, none of them can be considered.")),
+                 severity="info" if count == 1 else "critical")
+    if rfp.authority_at_opening:
+        ok = bool(opening.get("letter_of_authority"))
+        sink.add("receipt", check="Letter of authority at opening", kind="presence", basis="Fact", method="opening record",
+                 title="Representative's letter of authority in order" if ok else "No letter of authority at opening",
+                 detail="Recorded by the opening panel.", severity="info" if ok else "attention")
+
+
+def check_gate_more(rfp: RfpFacts, s: SubmissionFacts, doc: Document, sink: _Sink, deadline: str) -> None:
+    d, due = doc.doc_id, datetime.fromisoformat(deadline)
+    site = s.forms.get("Site Visit Certificate")
+    sink.add("gate", check="Site visit", kind="presence", basis="Fact",
+             title="Site Visit Certificate present" if site else "Site Visit Certificate missing",
+             detail="Attendance at the site visit is mandatory." + ("" if site else " Without the certificate, the panel cannot "
+                    "confirm that the tenderer saw the site; check the attendance register before deciding."),
+             evidence=ev(d, site.page, site.quote) if site else [], severity="info" if site else "critical",
+             clarify=None if site else "Please provide your Site Visit Certificate, or state the date your representative attended.")
+    for form, limit in rfp.page_limits.items():
+        n = s.form_pages.get(form)
+        if n is not None:
+            m = s.forms[form]
+            sink.add("gate", check="Page limits", kind="threshold", basis="Fact",
+                     title=f"{form.split(' - ')[0]}: {n} page{'s' if n > 1 else ''} of {limit} allowed",
+                     detail="Within the limit." if n <= limit else f"Pages beyond {limit} should not be read by the evaluators.",
+                     evidence=ev(d, m.page, m.quote), severity="info" if n <= limit else "attention")
+    if rfp.alternatives_with_base:
+        sink.add("gate", check="Alternatives", kind="presence", basis="Fact",
+                 title="Alternative tender offered" if s.alternative else "No alternative tender",
+                 detail=("It is considered only if the base tender is compliant, and is evaluated separately." if s.alternative
+                         else "Only the base tender is evaluated."),
+                 evidence=ev(d, s.alternative.page, s.alternative.quote) if s.alternative else [])
+    if rfp.subcontractor_tax and s.subcontractors:
+        bad = [c for c in s.subcontractors if not c.tax or (_date(c.tax) or due) < due]
+        sink.add("gate", check="Documents for each entity", kind="set", basis="Fact",
+                 title=(f"Tax clearance for all {len(s.subcontractors)} subcontractors" if not bad else
+                        "Tax clearance missing or expired: " + ", ".join(c.text.replace(" (fictional)", "") for c in bad)),
+                 detail="Each named subcontractor must provide its own tax clearance certificate, valid on the submission date.",
+                 evidence=[e for c in (bad or s.subcontractors)[:2] for e in ev(d, c.page, c.quote)],
+                 severity="critical" if bad else "info",
+                 clarify=("Please provide a current tax clearance certificate for: "
+                          + ", ".join(c.text for c in bad) + ".") if bad else None)
+    if rfp.sales_tax_separate:
+        foreign = s.currencies
+        issues = ([f"amounts in another currency ({', '.join(c.text for c in foreign[:2])})"] if foreign else []) + (
+            [] if s.sales_tax else ["sales tax not stated separately"])
+        sink.add("gate", check="Currency and tax", kind="presence", basis="Fact",
+                 title="US dollars; sales tax stated separately" if not issues else "Currency and tax: " + "; ".join(issues),
+                 detail="Prices must be in US dollars, excluding sales tax, with the tax stated separately on the Combined Offer."
+                        + ("" if s.sales_tax else " Without it, the panel cannot confirm that the price excludes tax."),
+                 evidence=ev(d, s.sales_tax.page, s.sales_tax.quote) if s.sales_tax else [],
+                 severity="info" if not issues else "attention",
+                 clarify=None if s.sales_tax else "Please confirm that your Combined Offer excludes sales tax, and state the tax separately.")
+
+
+def check_technical_more(rfp: RfpFacts, s: SubmissionFacts, doc: Document, sink: _Sink) -> None:
+    d = doc.doc_id
+    if rfp.plant:
+        have = {p["item"]: p for p in s.plant}
+        short = [f"{r['item']} ({have[r['item']]['qty'] if r['item'] in have else 0} of {r['qty']})"
+                 for r in rfp.plant if have.get(r["item"], {}).get("qty", 0) < r["qty"]]
+        sink.add("technical", check="Plant", kind="set", basis="Fact",
+                 title="Minimum plant offered" if not short else "Plant short: " + "; ".join(short),
+                 detail="Against the minimum plant in the request for proposal. Leased plant counts if it is committed for the works.",
+                 evidence=[e for p in s.plant[:3] for e in ev(d, p["page"], p["quote"])], severity="info" if not short else "attention",
+                 clarify=None if not short else "Please confirm how you will provide the minimum plant: " + "; ".join(short) + ".")
+    for req in rfp.performance:
+        got = s.technical_data.get(req["parameter"])
+        if not got:
+            sink.add("technical", check="Specification values", kind="presence", basis="Fact", title=f"{req['parameter']}: not offered",
+                     detail="Form T gives no value.", severity="attention")
+            continue
+        val = float(got.text)
+        ok = val >= req["value"] if req["limit"] == "minimum" else val <= req["value"]
+        sink.add("technical", check="Specification values", kind="threshold", basis="Fact",
+                 title=f"{req['parameter']}: {got.text} offered" + ("" if ok else f", {req['limit']} {req['value']:g}"),
+                 detail=f"The requirement is a {req['limit']} of {req['value']:g}." + ("" if ok else " The offer does not meet it."),
+                 evidence=ev(d, got.page, got.quote), severity="info" if ok else "critical",
+                 clarify=None if ok else f"Your offered value for {req['parameter'].lower()} ({got.text}) does not meet the "
+                                         f"{req['limit']} of {req['value']:g}. Please confirm your offer.")
+    if rfp.resident_pct is not None and s.resident:
+        ok = s.resident_pct >= rfp.resident_pct
+        sink.add("technical", check="Local workforce", kind="threshold", basis="Fact",
+                 title=f"Local workforce {s.resident_pct:g}%" + ("" if ok else f", below the {rfp.resident_pct:g}% required"),
+                 detail=f"At least {rfp.resident_pct:g}% of the site workforce must be resident in the State.",
+                 evidence=ev(d, s.resident.page, s.resident.quote), severity="info" if ok else "critical")
+
+
+def check_commercial_more(s: SubmissionFacts, doc: Document, sink: _Sink) -> None:
+    d = doc.doc_id
+    diffs = []
+    for lot in ("A", "B"):
+        sched = s.lot_totals.get(lot)
+        if sched and lot in s.letter_prices:
+            val = float(sched.text.replace("$", "").replace(",", ""))
+            if abs(val - s.letter_prices[lot]) > 0.5:
+                diffs.append(f"Lot {lot}: letter {_usd(s.letter_prices[lot])}, schedule {_usd(val)}")
+    if s.combined is not None and "combined" in s.letter_prices and abs(s.combined - s.letter_prices["combined"]) > 0.5:
+        diffs.append(f"Combined: letter {_usd(s.letter_prices['combined'])}, offer page {_usd(s.combined)}")
+    sink.add("commercial", check="Letter against schedules", kind="arithmetic", basis="Fact",
+             title="Letter of Tender agrees with the schedules" if not diffs else "Letter of Tender differs from the schedules",
+             detail="Prices in the Letter of Tender against the priced schedules." + ("" if not diffs else " " + "; ".join(diffs) + "."),
+             evidence=ev(d, s.offer.page, s.offer.quote) if s.offer else [], severity="info" if not diffs else "critical")
+    blank = [f"Lot {lot} item {r.item}" for lot, rows in s.schedules.items() for r in rows if r.unit_price == 0 or r.amount == 0]
+    sink.add("commercial", check="Unpriced items", kind="set", basis="Fact",
+             title="Every item priced" if not blank else f"{len(blank)} items unpriced",
+             detail=("No blank or zero rates." if not blank else "Unpriced: " + ", ".join(blank)
+                     + ". Unless the tender says otherwise, they are deemed included in other rates."),
+             severity="info" if not blank else "attention")
+
+
+def check_qualification_more(rfp: RfpFacts, s: SubmissionFacts, doc: Document, sink: _Sink) -> None:
+    d = doc.doc_id
+    if rfp.accounts_years and s.accounts:
+        given = re.findall(r"\d{4}", s.accounts.text)
+        missing = [y for y in rfp.accounts_years if y not in given]
+        sink.add("integrity", check="Accounts", kind="set", basis="Fact",
+                 title=f"Audited accounts {', '.join(given)}" + ("" if not missing else f"; {', '.join(missing)} missing"),
+                 detail=f"Required: {', '.join(rfp.accounts_years)}." + ("" if not missing else " The latest year is missing, so the "
+                        "financial standing rests on older figures."),
+                 evidence=ev(d, s.accounts.page, s.accounts.quote), severity="info" if not missing else "attention",
+                 clarify=None if not missing else f"Please provide audited accounts for {', '.join(missing)}.")
+    if rfp.owner_threshold is not None:
+        sink.add("integrity", check="Ownership", kind="presence", basis="Fact",
+                 title=f"{len(s.owners)} owners of {rfp.owner_threshold:g}% or more named" if s.owners else "Owners not named",
+                 detail="; ".join(f"{o['name']}, {o['pct']:g}%" for o in s.owners) or "Form B names no owners.",
+                 evidence=ev(d, s.owners_cited.page, s.owners_cited.quote) if s.owners_cited else [],
+                 severity="info" if s.owners else "critical")
+    if s.jv and rfp.jv_member_min is not None:
+        bad = [f"{m['name'].replace(' (fictional)', '')} {m['pct']:g}%" for m in s.jv
+               if m["pct"] < (rfp.jv_lead_min if m["role"].lower().startswith("lead") else rfp.jv_member_min)]
+        sink.add("integrity", check="Joint-venture shares", kind="threshold", basis="Fact",
+                 title="Joint-venture shares meet the minimums" if not bad else "Joint-venture share below the minimum: " + ", ".join(bad),
+                 detail=f"Each member at least {rfp.jv_member_min:g}%, the lead at least {rfp.jv_lead_min:g}%.",
+                 evidence=[e for m in s.jv for e in ev(d, m["page"], m["quote"])], severity="info" if not bad else "critical")
+
+
+def check_owners_cross(sinks: list[tuple[SubmissionFacts, Document, _Sink]]) -> list[dict]:
+    hits = []
+    for i, (a, da, sa) in enumerate(sinks):
+        for b, db, sb in sinks[i + 1:]:
+            shared = sorted({o["name"] for o in a.owners} & {o["name"] for o in b.owners})
+            for name in shared:
+                hits.append({"a": a.tenderer, "b": b.tenderer, "owner": name})
+                for me, other, doc, sink in ((a, b, da, sa), (b, a, db, sb)):
+                    pct = next(o["pct"] for o in me.owners if o["name"] == name)
+                    sink.add("integrity", check="Shared ownership", kind="cross", basis="Fact",
+                             method="cross-tender comparison (deterministic)",
+                             title=f"Shares an owner with {other.tenderer.replace(' (fictional)', '')}",
+                             detail=f"{name} holds {pct:g}% here and also owns part of the other tenderer. Tenders from commonly "
+                                    "owned firms are not independent; read with the anti-collusion certificates and any other "
+                                    "indicator, and refer to the procurement integrity process.",
+                             evidence=ev(doc.doc_id, me.owners_cited.page, me.owners_cited.quote), severity="critical")
+    return hits
+
+
 # --- The whole evaluation -------------------------------------------------------------------------------------------
 
 def evaluate_all(rfp: RfpFacts, rfp_doc: Document, subs: list[tuple[SubmissionFacts, Document]],
-                 receipts: dict[str, str], fw: Framework) -> dict:
+                 receipts: dict[str, str], fw: Framework, opening: dict | None = None) -> dict:
     findings: list[Finding] = []
     sinks, commercial, coverage = [], {}, {}
     for s, doc in subs:
@@ -553,13 +723,19 @@ def evaluate_all(rfp: RfpFacts, rfp_doc: Document, subs: list[tuple[SubmissionFa
         sink = _Sink(key, s.tenderer, {doc.doc_id: doc}, s.method, findings)
         sinks.append((s, doc, sink))
         check_receipt(s, sink, receipts.get(key), receipts["deadline"])
+        check_opening(rfp, s, sink, (opening or {}).get(key, {}), sum(1 for x, _ in subs if x.tenderer == s.tenderer))
         check_gate(rfp, s, doc, sink, fw)
+        check_gate_more(rfp, s, doc, sink, receipts["deadline"])
         coverage[s.tenderer] = check_technical(rfp, s, doc, sink, fw)
+        check_technical_more(rfp, s, doc, sink)
         commercial[s.tenderer] = check_commercial(rfp, s, doc, sink, fw)
+        check_commercial_more(s, doc, sink)
         check_contract(rfp, s, doc, sink, fw, commercial[s.tenderer]["evaluated"])
         check_qualification(rfp, s, doc, sink, receipts["deadline"])
+        check_qualification_more(rfp, s, doc, sink)
         check_integrity_single(s, doc, sink, fw)
     pairs = check_integrity_cross(sinks, fw)
+    owners = check_owners_cross(sinks)
 
     # Cross-tender rate comparison: each priced item against the median of all tenderers.
     rate_table = {}
@@ -586,5 +762,5 @@ def evaluate_all(rfp: RfpFacts, rfp_doc: Document, subs: list[tuple[SubmissionFa
 
     lot_prices = {n: {lot: v["stated"] + v["normalisation"] for lot, v in c["lots"].items()} for n, c in commercial.items()}
     award = cheapest_award(lot_prices, {n: c["evaluated"] for n, c in commercial.items()})
-    return {"findings": findings, "commercial": commercial, "coverage": coverage, "outliers": outliers,
+    return {"findings": findings, "commercial": commercial, "coverage": coverage, "outliers": outliers, "owners": owners,
             "identical": pairs, "award": award, "lot_prices": lot_prices}

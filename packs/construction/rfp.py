@@ -50,6 +50,22 @@ class RfpFacts(BaseModel):
     technical_pass: float | None = None
     methodology_cutoff: float | None = None
     standstill_days: int | None = None
+    plant: list[dict] = []
+    resident_pct: float | None = None
+    performance: list[dict] = []
+    dossier: list[dict] = []
+    page_limits: dict[str, int] = {}
+    negotiation: bool | None = None
+    alternatives_with_base: bool = False
+    sales_tax_separate: bool = False
+    accounts_years: list[str] = []
+    owner_threshold: float | None = None
+    jv_member_min: float | None = None
+    jv_lead_min: float | None = None
+    subcontractor_tax: bool = False
+    one_tender: bool = False
+    authority_at_opening: bool = False
+    headings: list[str] = []
     # Values the document states in more than one place, for the consistency check: key -> [(value, page, quote)].
     stated: dict[str, list[tuple[str, int, str]]] = {}
     entries: list[Entry] = []
@@ -131,8 +147,66 @@ def read_rfp(doc: Document) -> RfpFacts:
         if m := re.search(r"standstill period of (\d+) days", t):
             f.standstill_days = int(m.group(1))
             add("Award", "Standstill", f"{m.group(1)} days between notification and signature", pg.number, m.group(0))
+        f.headings += [ln.strip() for ln in pg.text.splitlines() if re.match(r"^\d+\. [A-Z]", ln.strip())]
+        rules = [
+            (r"Attendance at the site visit is mandatory", "Submission", "Site visit", "Mandatory; Site Visit Certificate required"),
+            (r"Each member of a joint venture shall hold at least (\d+)% and the lead member at least (\d+)%", "Qualification",
+             "Joint ventures", "Each member at least {0}%, the lead at least {1}%"),
+            (r"Each named subcontractor shall provide its own tax clearance certificate", "Qualification", "Subcontractors",
+             "Each subcontractor's tax clearance valid on the submission date"),
+            (r"excluding sales tax, which shall be stated separately", "Commercial", "Currency and tax",
+             "US dollars; sales tax stated separately"),
+            (r"Alternative tenders are considered only alongside a compliant base tender", "Commercial", "Alternatives",
+             "Only alongside a compliant base tender"),
+            (r"Form H shall not exceed (\d+) pages", "Submission", "Page limits", "Form H at most {0} pages"),
+            (r"The Employer will not negotiate with tenderers", "Award", "Negotiation", "No negotiation"),
+            (r"Audited accounts for (\d{4}) to (\d{4}) shall be provided", "Qualification", "Accounts", "Audited accounts {0} to {1}"),
+            (r"name every owner holding (\d+)% or more", "Qualification", "Ownership", "Owners holding {0}% or more named"),
+            (r"Only one tender per tenderer will be considered", "Submission", "One tender", "One tender per tenderer"),
+            (r"A representative attending the opening shall carry a letter of authority", "Submission", "Opening",
+             "Representatives carry a letter of authority"),
+            (r"At least (\d+)% of the site workforce shall be resident in the State of Lakeshore", "Technical", "Local workforce",
+             "At least {0}% of the site workforce resident in the State"),
+            (r"Minimum plant: (.+?)\.(?: |$)", "Technical", "Plant", "{0}"),
+        ]
+        for pat, cat, key, text in rules:
+            if m := re.search(pat, t):
+                add(cat, key, text.format(*m.groups()), pg.number, m.group(0))
+                if key == "Joint ventures":
+                    f.jv_member_min, f.jv_lead_min = float(m.group(1)), float(m.group(2))
+                elif key == "Subcontractors":
+                    f.subcontractor_tax = True
+                elif key == "Currency and tax":
+                    f.sales_tax_separate = True
+                elif key == "Alternatives":
+                    f.alternatives_with_base = True
+                elif key == "Page limits":
+                    f.page_limits["Form H - Methodology"] = int(m.group(1))
+                elif key == "Negotiation":
+                    f.negotiation = False
+                elif key == "Accounts":
+                    f.accounts_years = [str(y) for y in range(int(m.group(1)), int(m.group(2)) + 1)]
+                elif key == "Ownership":
+                    f.owner_threshold = float(m.group(1))
+                elif key == "One tender":
+                    f.one_tender = True
+                elif key == "Opening":
+                    f.authority_at_opening = True
+                elif key == "Local workforce":
+                    f.resident_pct = float(m.group(1))
+                elif key == "Plant":
+                    for part in m.group(1).split("; "):
+                        name, qty = part.rsplit(", ", 1)
+                        f.plant.append({"item": name, "qty": int(qty)})
         for table in pg.tables:
             head = table[0] if table else ()
+            if head[:3] == ("Parameter", "Limit", "Value"):
+                for row in table[1:]:
+                    f.performance.append({"parameter": row[0], "limit": row[1], "value": float(row[2]), "page": pg.number, "quote": _row(row)})
+                    add("Technical", "Performance", f"{row[0]}: {row[1]} {row[2]}", pg.number, _row(row))
+            elif head[:3] == ("Annex", "Title", "Where"):
+                for row in table[1:]:
+                    f.dossier.append({"annex": row[0], "title": row[1], "where": row[2], "page": pg.number, "quote": _row(row)})
             if head[:3] == ("Volume", "Form", "Requirement"):
                 for row in table[1:]:
                     f.forms.append({"volume": row[0], "form": row[1], "note": row[2], "page": pg.number, "quote": _row(row)})

@@ -1,0 +1,14 @@
+# Palette from the demo's design system (after Refactoring UI): cool-tinted greys and one blue primary.
+[theme]
+base = "light"
+primaryColor = "#195fa9"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#eef2f6"
+textColor = "#101a28"
+font = "sans serif"
+borderColor = "#dfe5ec"
+showWidgetBorder = false
+baseRadius = "small"
+
+[client]
+toolbarMode = "minimal"

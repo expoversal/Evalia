@@ -1,8 +1,8 @@
 # Evalia: project rules
 
-Evalia is an independent bid-scrutiny tool for construction owners and lenders. It produces evidence-cited scrutiny reports on construction bids. It does not award contracts. It was inspired by JTC Corporation's EVA, but it shares no code with EVA.
+Evalia helps clients evaluate construction tenders, as JTC Corporation's EVA does for JTC's own evaluators. It reads the submissions, maps what it finds against the client's evaluation criteria, and proposes compliance findings and scores, with its reasoning and evidence made explicit. The client's evaluators keep full authority over every score and recommendation; Evalia structures, surfaces and highlights, but does not decide. A second use, proposed by Victor, would let a bidder check its own submission for compliance before lodging it. Evalia was inspired by EVA but shares no code with it.
 
-**Current phase:** design. No product code is written until Victor approves [`docs/04-v1-scope.md`](docs/04-v1-scope.md). Version one is limited to producing three scrutiny reports for the discovery test.
+**Current phase:** design. No product code is written until Victor approves [`docs/04-v1-scope.md`](docs/04-v1-scope.md). Version one is limited to supporting three tender evaluations for the discovery test.
 
 ## Key documents
 
@@ -74,7 +74,8 @@ C:\Users\Victor\OneDrive\Evalia-data
 - **The residency policy fails closed.** If no permitted profile exists, the call is refused. It never falls back silently.
 - **Deterministic checks for arithmetic, presence, dates, thresholds and set differences.** Never ask a model to do arithmetic that code can do.
 - **Every finding is traceable** to a document, a page and, where text is relied on, a verified verbatim quote.
-- **No finding reaches a report without human review** (accepted or amended).
+- **No finding or score reaches a report without human review** (accepted or amended). An evaluator who changes a proposed score must give a reason, and the reason is kept.
+- **Never act for both sides of one tender.** Evalia must not support a bidder and the evaluating client on the same tender, and one side's data must never be visible to the other.
 - **Prompts are pack files** rendered with Jinja2 using strict undefined variables, never `str.format()`.
 
 ## 5. Using the DeepSeek material
@@ -82,7 +83,7 @@ C:\Users\Victor\OneDrive\Evalia-data
 - `docs/deepseek-source.md` and `extracted/` are reference material, not a codebase.
 - Do not copy fragments into product code. Re-derive the logic, write tests first, and check the known defects listed in `extracted/INVENTORY.md`.
 - Before relying on any third-party API, verify it against the installed package or its source. The transcript invented APIs for Docling, FROST and Rekor.
-- Its integrity apparatus (sealing, ledgers, HSM ceremonies, anchoring, award engine) is out of scope. It must not be reintroduced without Victor's approval.
+- Its integrity apparatus (cryptographic sealing, hash-chained ledgers, HSM ceremonies, anchoring, award engine) is out of scope. It must not be reintroduced without Victor's approval. A plain record of who changed which score, when and why is in scope; see `docs/02-architecture.md`, section 8.
 
 ## 6. Scope discipline
 

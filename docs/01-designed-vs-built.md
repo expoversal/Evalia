@@ -7,7 +7,7 @@ Audit of [`docs/deepseek-source.md`](deepseek-source.md), carried out on 29 Octo
 - **Fact.** Nothing was built. Before this audit, the repository held the transcript, a `.gitignore` and a `.gitattributes` file, and no code. The transcript contains no sign that any fragment was ever executed. The conversation ends with the user's message "both" (source line 7787), which has no reply.
 - **Fact.** DeepSeek produced 130 code fragments in chat (4,213 lines), all now extracted under [`extracted/`](../extracted/). Of the 49 Python fragments in its final answers, 9 run as written and 33 do not run at all. Of the six fragments that run and do real work, four have defects confirmed by test. All of the schema SQL executes, but its logic contains defects that undermine the properties it was designed to guarantee (section 4).
 - **Fact.** By character count, 19% of the transcript covers evaluation itself: rubrics, requirement extraction, compliance resolution and bill of quantities (BQ) checks (turns 3 to 5). Another 78% covers integrity infrastructure, written after the user typed "build all": envelope sealing, audit ledgers, award computation, hardware key custody, blockchain anchoring, an operations runbook and a threshold-key ceremony (turns 6 to 9).
-- **Interpretation.** The transcript answers a different question from the one Evalia poses. It designs a system for a public procuring entity that must defend its own two-envelope evaluation against legal challenge. Evalia is meant to be an independent scrutiny tool for owners and lenders, a party outside the procurement. For that purpose most of the integrity apparatus is out of scope. The parts that matter (requirement extraction, compliance resolution with verified quotes, deterministic BQ checks) are the least developed in code, and the scrutiny checks owners and lenders care most about are absent (section 6).
+- **Interpretation (revised 29 October 2026).** The transcript's framing, a procuring entity evaluating the bids it has received, matches Evalia's intended role more closely than this audit first assumed: Victor has confirmed that Evalia should work like EVA, helping clients evaluate tenders. What does not fit is the scale of the integrity apparatus. Cryptographic sealing, quorum ceremonies and blockchain anchoring answer the needs of a public body defending awards in litigation, not of a version one supporting three evaluations; a plain decision log and a technical-before-price sequence meet the need proportionately. Meanwhile the parts that carry an evaluation (requirement extraction, compliance resolution with verified quotes, proposed scores, deterministic price checks) are the least developed in code, and the substantiation check that EVA's own reported example relies on is absent (section 6).
 - **Interpretation.** The transcript's most useful content is its principles, not its code. Six principles stand out: verify every quoted piece of evidence against the source; keep arithmetic and presence checks out of the model; preserve thresholds verbatim; distinguish "not addressed" from "non-compliant"; force the model to say where it looked before declaring something absent; and measure false negatives on mandatory requirements. Section 5 lists what to keep.
 
 ## 2. Conversation structure
@@ -35,8 +35,8 @@ Audit of [`docs/deepseek-source.md`](deepseek-source.md), carried out on 29 Octo
 | Claim in transcript | Status |
 |---|---|
 | `jtc-client` on PyPI is a client for a JTC-built evaluator (turn 1) | **Fact.** The package exists (version 0.1.0). Its own description says it is a client for "Judges That Code" tool services, and it does not mention JTC Corporation or Singapore. **Interpretation:** it is unrelated to EVA, and turn 1 conflated two meanings of "JTC". |
-| EVA was reported by The Business Times on 15 April 2026 (user's statement) | **Unresolved.** A search on 29 October 2026 found a DPEX Network repost of a Business Times article, "JTC bids goodbye to the paper-heavy world of construction tenders", which the search summary dates to 7 April 2026. DeepSeek's own search result (source line 52) carries the same title with "DAITA 2026". The article body sits behind a login, and the difference in dates is not settled. |
-| EVA workload figures | **Unverified.** According to the search summary, the article cites about 8 evaluators per construction tender, about 30 documents per tenderer, about 40 construction tenders a year and about 34,000 man-hours a year. DeepSeek did not report these figures, and they have not been read in the original. |
+| EVA was reported by The Business Times on 15 April 2026 (user's statement) | **Partly resolved.** Victor supplied the article's text and its URL on 29 October 2026; the URL places it in the newspaper's Design, AI and Tech Awards section. A search found a DPEX Network repost that the search summary dates to 7 April 2026, and DeepSeek's own search result (source line 52) carries the title with "DAITA 2026". The publication date is still not settled; the article could not be fetched from this session. |
+| EVA workload figures and capabilities | **Fact (as reported).** The article text states about eight evaluators per construction tender, about 14 man-days each, some 30 documents per tenderer, about 40 tenders a year and about 34,000 man-hours a year; that EVA extracts details and performs initial scoring against JTC's criteria, with its reasoning explicit; that it flagged performance ratings the supporting documents did not substantiate; and that evaluators keep full authority. These are the article's claims, not independently verified. **Fact (computation):** 8 × 14 × 40 = 4,480 man-days, or 33,600 hours at 7.5 hours a day, consistent with the article's total. |
 | EVA was co-created with project, contract and procurement staff, and is designed to transfer to consultancy and IT tenders (turn 2) | **Unverified.** These claims reach us only through DeepSeek's paraphrase of an article it read. |
 | BCA CW01 grades run "A1 to C2" (source line 474) | **Unverified.** The auditor's recollection is that the CW01 range extends to C3. Check against BCA's current Contractors Registration System schedule before use. |
 | Quality-Fee Method is "Singapore MOF style" with fee score 100 × lowest/bidder and 70/30 weights (fragment 073) | **Unsupported.** DeepSeek's reasoning (source line 3817 onwards) says that "the exact formula varies" and that it chose one; no source is cited. |
@@ -59,7 +59,7 @@ Audit of [`docs/deepseek-source.md`](deepseek-source.md), carried out on 29 Octo
 | Bid indexing (sections, dense, BM25, clause echo, table of contents) | Turn 5 B.2 | 022 | Incomplete | Partly |
 | Navigate-then-extract compliance resolver | Turn 5 B.3 | Prompts 023, 024 | Prompts only | Yes |
 | Quote verification | Turn 3 §4; turn 5 B.4 | 008, 025 | 008 rejects genuine quotes when a document spans several chunks; 025 is incompatible with the model in 013 | Yes, redesigned |
-| Criterion scoring with anchors | Turn 3 §4; turn 4 §2 | 007, 009 | Incomplete; 009 crashes when a score is absent | Deferred (see `04-v1-scope.md`) |
+| Criterion scoring with anchors | Turn 3 §4; turn 4 §2 | 007, 009 | Incomplete; 009 crashes when a score is absent | Yes, redesigned (SCR-01) |
 | BQ arithmetic checks | Turn 4 §4 | 014 | Extension errors only; the other four checks claimed are not implemented | Yes |
 | Abnormally low rate detection | Turn 4 §5 | 015 | Runs; silent with fewer than four bids | Yes, with a reference-estimate mode |
 | Programme credibility | Turn 4 §6 | None | Never written | Yes, narrow |
@@ -69,8 +69,8 @@ Audit of [`docs/deepseek-source.md`](deepseek-source.md), carried out on 29 Octo
 | Role-based access and envelope scoping | Turn 6 Part 2 | 046 to 049 | Policy runs; dependencies incomplete | No |
 | Two-envelope schema | Turn 6 Part 1 | 041 to 045 | Executes; the application role can revoke seals unaided | No |
 | Sealing (Merkle tree, Ed25519) | Turn 6 Part 3 | 050 to 052 | Core runs; route incomplete; trigger covers one table of four | No |
-| Hash-chained audit ledger | Turn 6 Part 4 | 044, 053, 054 | Three defects confirmed on PostgreSQL (L2, L3, L4) | No; v1 keeps a simpler run record |
-| Award engine (lowest compliant price, QFM, price-quality) | Turn 7 A.2 to A.6 | 072 to 077 | Gate and price logic broken; ties mis-ranked; rejection still marks the tender awarded | No (Evalia does not award) |
+| Hash-chained audit ledger | Turn 6 Part 4 | 044, 053, 054 | Three defects confirmed on PostgreSQL (L2, L3, L4) | No; v1 keeps a decision log and run record |
+| Award engine (lowest compliant price, QFM, price-quality) | Turn 7 A.2 to A.6 | 072 to 077 | Gate and price logic broken; ties mis-ranked; rejection still marks the tender awarded | No (the client decides the award; its price-quality formula may be computed later) |
 | Checkpoints, write-once export, offline verifier, replay | Turn 7 B | 078 to 086 | Export defective; verifier misses timestamp edits and truncation; replay has a syntax error | No |
 | HSM custody, signing ceremony, KMS policy | Turn 8 A.1 to A.4 | 088 to 090 | Signature scheme inconsistent with every verifier | No |
 | Quorum unseal (FROST) | Turn 8 A.5 | 091, 092 | Library does not exist; protocol omits round two | No |
@@ -79,7 +79,8 @@ Audit of [`docs/deepseek-source.md`](deepseek-source.md), carried out on 29 Octo
 | Operations runbook | Turn 9 A | 102 to 114 | Scripts call functions and tools never written; example records fictional | No |
 | FROST distributed key generation ceremony | Turn 9 B | 115 to 129 | The tool does not exist | No |
 | Model abstraction (LiteLLM mentioned) | Turn 3 | None; 007 hard-codes one model | Never written | Yes (see `03-llm-layer.md`) |
-| Scrutiny report for an owner or lender | Not designed | Only the award PDF (076) | Not applicable | Yes, the v1 deliverable |
+| Draft evaluation for the client's panel | Not designed | Only the award PDF (076) | Not applicable | Yes, the v1 deliverable |
+| Substantiation check (claims against supporting documents) | Not designed | None | Not applicable | Yes (SUB-01) |
 
 ## 5. Defects with the greatest consequence
 
@@ -116,19 +117,21 @@ Ranked by the damage each would do if the code were adopted. Each is a **Fact** 
 
 ### Discarded for Evalia (Interpretation)
 
-These belong to a procuring entity's evaluation system, not to independent scrutiny: two-envelope sealing, role-based envelope scoping, award computation, HSM custody, quorum unseal, threshold key generation, blockchain and transparency-log anchoring, write-once audit export, and most of the runbook. If a future customer needs evidential integrity for Evalia's own outputs, a far simpler mechanism will do: hashing inputs and outputs in a run record, optionally timestamped. See [`02-architecture.md`](02-architecture.md), section 8.
+The following are set aside: two-envelope cryptographic sealing, role-based envelope scoping, the award engine as written, HSM custody, quorum unseal, threshold key generation, blockchain and transparency-log anchoring, write-once audit export and most of the runbook. **Interpretation:** these exceed what three supported evaluations need, and the code for them is defective. What remains of the underlying need (show who changed which score and why; keep price unseen until the technical evaluation is confirmed, where the client requires it) is met by a decision log, a run record and a procedural sequence. See [`02-architecture.md`](02-architecture.md), section 8.
 
-### Missing from the transcript but central to owner and lender scrutiny (Interpretation)
+### Missing from the transcript but valuable to evaluators (Interpretation)
 
-The transcript evaluates bids for compliance and merit. Owners and lenders also need to know what a bid changes, hides or under-prices. None of the following is designed:
+The transcript evaluates bids for compliance and merit. An evaluation panel also needs to know whether claims are supported, and what a bid changes, hides or under-prices. None of the following is designed:
+
+- **Substantiation.** Claims in a submission (performance ratings, track record, certifications) checked against its supporting documents. This is the example EVA's own coverage gives of what the tool catches.
 
 - **Qualifications, exclusions, assumptions and departures.** A register of every point where a bidder alters scope, risk or the conditions of contract: caps on liquidated damages, time bars, payment terms, design responsibility, ground risk.
 - **Security package.** Bonds, parent-company guarantees and insurances, compared with the requirements.
-- **Rate loading and front-loading.** Early-activity rates inflated against later ones, which matters to an owner's cash flow and to a lender's drawdown exposure.
+- **Rate loading and front-loading.** Early-activity rates inflated against later ones, which matters to the client's cash flow.
 - **Provisional and prime-cost sums.** Their share of the price, and whether a bidder has altered them.
-- **Single-bid scrutiny.** A lender often sees one contractor's price. Peer-based outlier tests need at least four bids (fragment 015), so a single bid requires benchmarking against an engineer's estimate or a cost database.
+- **Rate review with few bids.** Peer-based outlier tests need at least four bids (fragment 015); with fewer, rates must be compared with the client's pre-tender estimate.
 - **Programme against contract dates.** Completion and sectional dates, float, and consistency with the method statement and resources.
-- **Plain-language report.** A report for decision-makers, with each finding labelled as fact or interpretation and tied to a page. The transcript's only report is an award table (076).
+- **Draft evaluation for the panel.** A document the panel can review, with each finding and proposed score labelled as fact or interpretation and tied to a page. The transcript's only report is an award table (076).
 
 ## 7. Lessons for how Evalia is built
 

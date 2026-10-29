@@ -1,6 +1,6 @@
 # Evalia
 
-Evalia helps clients evaluate construction tenders, in the manner of JTC Corporation's EVA: it proposes compliance findings and scores with explicit reasoning and evidence, and the client's evaluators decide. It is at the design stage, and no product code has been written yet.
+Evalia helps clients evaluate construction tenders. It proposes compliance findings and scores, with explicit reasoning and cited evidence, and the client's evaluators decide. A proof-of-concept demo is under construction.
 
 | Document | What it covers |
 |---|---|

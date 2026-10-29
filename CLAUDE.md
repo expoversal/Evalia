@@ -2,7 +2,7 @@
 
 Evalia helps clients evaluate construction tenders, as JTC Corporation's EVA does for JTC's own evaluators. It reads the submissions, maps what it finds against the client's evaluation criteria, and proposes compliance findings and scores, with its reasoning and evidence made explicit. The client's evaluators keep full authority over every score and recommendation; Evalia structures, surfaces and highlights, but does not decide. Evalia is software that its users run themselves; Evalia's staff take no part in any evaluation. After version one, the same engine will let a bidder check its own submission for compliance before lodging it. The first jurisdiction is the United States, and the aim is global, with less developed markets (Africa, the Middle East, Central Asia) as a deliberate niche. Evalia was inspired by EVA but shares no code with it.
 
-**Current phase:** design. No product code is written until Victor approves [`docs/04-v1-scope.md`](docs/04-v1-scope.md). Version one is limited to supporting three tender evaluations for the discovery test.
+**Current phase:** building a proof-of-concept demo for Victor's Y Combinator application, due 2 November 2026. Victor's answers of 29 October 2026 settle the scope ([`docs/04-v1-scope.md`](docs/04-v1-scope.md)); the demo is its first slice, following the storyline in [`docs/05-positioning.md`](docs/05-positioning.md). Keep the demo simple: prove the concept, do not gold-plate.
 
 ## Key documents
 
@@ -13,6 +13,8 @@ Evalia helps clients evaluate construction tenders, as JTC Corporation's EVA doe
 | `docs/02-architecture.md` | Industry-neutral engine and construction rubric pack |
 | `docs/03-llm-layer.md` | Model-agnostic LLM gateway |
 | `docs/04-v1-scope.md` | Version-one scope; authoritative once approved |
+| `docs/05-positioning.md` | Positioning, reconciled with the EVA research |
+| `docs/research/` | Research reports supplied by Victor |
 | `extracted/INVENTORY.md` | Every DeepSeek code fragment and whether it runs |
 
 ## 1. Writing style
@@ -78,20 +80,25 @@ C:\Users\Victor\OneDrive\Evalia-data
 - **Both sides may use Evalia; their information never meets.** Evaluating clients and bidders may both use Evalia, even on the same tender (see `docs/02-architecture.md`, section 6.4). Each engagement is isolated: no document, extracted text, cache, calibration or worked example passes between engagements. The bidder profile uses only published tender documents and does not score. Evalia's staff have no access to customer engagement data without the customer's explicit, logged permission.
 - **Prompts are pack files** rendered with Jinja2 using strict undefined variables, never `str.format()`.
 
-## 5. Using the DeepSeek material
+## 5. Positioning in outward materials
+
+- Do not use JTC's name in Evalia branding, and never describe Evalia as "EVA for X" in client or investor materials. Cite JTC's EVA only as a public precedent, with the Business Times as source.
+- Do not repeat JTC's projected savings as measured results.
+
+## 6. Using the DeepSeek material
 
 - `docs/deepseek-source.md` and `extracted/` are reference material, not a codebase.
 - Do not copy fragments into product code. Re-derive the logic, write tests first, and check the known defects listed in `extracted/INVENTORY.md`.
 - Before relying on any third-party API, verify it against the installed package or its source. The transcript invented APIs for Docling, FROST and Rekor.
 - Its integrity apparatus (cryptographic sealing, hash-chained ledgers, HSM ceremonies, anchoring, award engine) is out of scope. It must not be reintroduced without Victor's approval. A plain record of who changed which score, when and why is in scope; see `docs/02-architecture.md`, section 8.
 
-## 6. Scope discipline
+## 7. Scope discipline
 
 - `docs/04-v1-scope.md` is authoritative once approved. Propose scope changes; do not make them unilaterally.
 - Before designing anything new, confirm who the user is, what they need and what is out of scope. Ask when the request is ambiguous.
 - Prefer the smallest change that meets the requirement.
 
-## 7. Working practice
+## 8. Working practice
 
 - Work on a branch and open a pull request for Victor's review. Never push to `main` directly.
 - Commit messages and pull request descriptions follow section 1 and use the labels in section 2.

@@ -13,3 +13,34 @@ Evalia helps clients evaluate construction tenders. It proposes compliance findi
 | [`docs/deepseek-source.md`](docs/deepseek-source.md) | The source conversation (reference only) |
 
 Tender and bid data are never stored in this repository. See `CLAUDE.md`, section 3.
+
+## Running the demo
+
+The demo uses one fictional tender and three fictional bids (`tests/fixtures/synthetic/`).
+
+```bash
+python -m venv .venv
+```
+
+Activate the environment (`.venv\Scripts\activate` on Windows, `source .venv/bin/activate` elsewhere), then:
+
+```bash
+pip install -e ".[ai,dev]"
+```
+
+```bash
+streamlit run app/streamlit_app.py
+```
+
+The application opens in the browser on your own machine. Without an AI model it reads the bids' standard forms deterministically. To use an AI model, set `EVALIA_MODEL` (the model identifier) and `EVALIA_ANTHROPIC_API_KEY` before starting it; the model then reads the bids, and every quote it returns is checked against the page it cites. Engagement files are written to `EVALIA_DATA_DIR` (by default `~/.evalia-demo`).
+
+To regenerate the fictional documents and run the tests:
+
+```bash
+python scripts/make_synthetic_tender.py
+```
+
+```bash
+python -m pytest
+```
+

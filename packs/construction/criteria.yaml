@@ -1,0 +1,35 @@
+# Default evaluation criteria for a US building tender. The client confirms or
+# edits these, and signs them off, before any submission is read.
+record_rules:
+  - id: C1
+    title: Relevant completed projects
+    keyword_field: building_type
+    keywords: [industrial building, warehouse, distribution center]
+    year_field: completed
+    year_min: 2018
+    year_max: 2026
+    value_field: contract_value
+    value_min: 11000000
+    rating_field: rating
+    rating_scale: [Unsatisfactory, Marginal, Satisfactory, Very Good, Exceptional]
+    rating_min: Satisfactory
+    role_field: role
+    role_required: Prime contractor
+    points_per_record: 2.5
+    max_records: 5
+band_rules:
+  - id: C2
+    title: Safety performance (Experience Modification Rate)
+    field: emr
+    bands:
+      - {up_to: 0.85, points: 5}
+      - {up_to: 1.00, points: 3}
+      - {up_to: null, points: 0}
+compliance_items:
+  - {id: K1, title: Bid bond of at least 5% of the total base bid, page_heading: Bid Bond}
+  - {id: K2, title: Bid Form signed by an authorized officer, marker: "Signed:"}
+  - {id: K3, title: Addendum No. 1 acknowledged, marker: "acknowledges receipt of Addendum No. 1"}
+not_assessed:
+  - Qualitative criteria (method statement, programme), which the client's panel evaluates separately
+  - Bidder licensing and registration, which require checks against state registries
+  - Pages without a text layer (scanned images), if any are listed below

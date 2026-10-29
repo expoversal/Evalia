@@ -1,0 +1,16 @@
+# Model profiles. Model names live here (or in the environment), never in code.
+# Values written as ${NAME} are read from environment variables at start-up.
+profiles:
+  anthropic-us:
+    provider: anthropic
+    model: ${EVALIA_MODEL}
+    residency: us_api
+    region: us
+    api_key_env: EVALIA_ANTHROPIC_API_KEY
+  self-hosted:
+    provider: openai_compatible
+    model: ${EVALIA_LOCAL_MODEL}
+    residency: self_hosted
+    region: local
+    endpoint: ${EVALIA_LOCAL_ENDPOINT}
+    api_key_env: EVALIA_LOCAL_API_KEY

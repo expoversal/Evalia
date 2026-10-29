@@ -10,7 +10,7 @@ from .documents import Document
 from .verify import quote_on_page
 
 Basis = Literal["Fact", "Interpretation"]
-Action = Literal["accept", "reject", "modify"]
+Action = Literal["accept", "reject", "modify", "score"]
 
 
 class Evidence(BaseModel):
@@ -25,6 +25,13 @@ class Finding(BaseModel):
 
     `proposed_points` is set only for findings that feed a score. Scores are never
     proposed by a model: they are computed by code from rules the client signed off.
+    Where no rule can propose points (a qualitative judgement), `score_max` is set
+    instead and the evaluator gives the score, with a reason.
+
+    `stream` groups findings into the stages of an evaluation (for example
+    responsiveness, technical, commercial). `value` carries a quantity that later
+    computation uses, such as an evaluated price. `clarify` holds a draft
+    clarification question when the finding should be put to the tenderer.
     """
 
     id: str
@@ -38,6 +45,11 @@ class Finding(BaseModel):
     evidence: list[Evidence] = Field(default_factory=list)
     proposed_points: float | None = None
     severity: Literal["info", "attention", "critical"] = "info"
+    stream: str = "general"
+    check: str | None = None
+    score_max: float | None = None
+    value: float | None = None
+    clarify: str | None = None
 
     @property
     def fully_verified(self) -> bool:
@@ -52,11 +64,14 @@ class Decision(BaseModel):
     at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     modified_detail: str | None = None
     modified_points: float | None = None
+    modified_value: float | None = None
 
     @model_validator(mode="after")
     def _reason_required(self) -> "Decision":
         if self.action != "accept" and not self.reason.strip():
-            raise ValueError("a reason is required to reject or modify a finding")
+            raise ValueError("a reason is required to reject, modify or score a finding")
+        if self.action == "score" and self.modified_points is None:
+            raise ValueError("a score is required")
         if not self.evaluator.strip():
             raise ValueError("the evaluator must be named")
         return self
@@ -80,10 +95,23 @@ def verify_evidence(finding: Finding, docs: dict[str, Document]) -> Finding:
 
 def final_points(finding: Finding, decision: Decision | None) -> float | None:
     """Points after review. Undecided findings carry no points into the score."""
-    if finding.proposed_points is None or decision is None:
+    if decision is None:
+        return None
+    if decision.action == "score":
+        return decision.modified_points
+    if finding.proposed_points is None:
         return None
     if decision.action == "accept":
         return finding.proposed_points
     if decision.action == "reject":
         return 0.0
     return decision.modified_points if decision.modified_points is not None else finding.proposed_points
+
+
+def final_value(finding: Finding, decision: Decision | None) -> float | None:
+    """Value after review, for findings that carry one (such as an evaluated price)."""
+    if finding.value is None or decision is None or decision.action == "reject":
+        return None
+    if decision.action == "modify" and decision.modified_value is not None:
+        return decision.modified_value
+    return finding.value

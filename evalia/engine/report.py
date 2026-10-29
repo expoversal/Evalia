@@ -8,20 +8,23 @@ from datetime import datetime, timezone
 from .findings import Decision, Finding, final_points
 
 
-def scores(findings: list[Finding], decisions: dict[str, Decision], caps: dict[str, tuple[str, float]]) -> dict[str, dict[str, float]]:
-    """Score per subject and criterion, computed by code from decided findings only, capped at each criterion's maximum."""
+def scores(findings: list[Finding], decisions: dict[str, Decision], criteria: dict[str, dict]) -> dict[str, dict[str, float]]:
+    """Score per subject and criterion, computed by code from decided findings only.
+
+    Each criterion has a `max` and an optional `base` (points a subject starts with, from which
+    deductions are made). The result is kept between 0 and the maximum.
+    """
     table: dict[str, dict[str, float]] = {}
     for f in findings:
-        if f.criterion not in caps:
+        if f.criterion not in criteria:
             continue
+        row = table.setdefault(f.subject, {c: float(v.get("base", 0)) for c, v in criteria.items()})
         pts = final_points(f, decisions.get(f.id))
-        if pts is None:
-            continue
-        row = table.setdefault(f.subject, {c: 0.0 for c in caps})
-        row[f.criterion] += pts
+        if pts is not None:
+            row[f.criterion] += pts
     for row in table.values():
-        for c, (_, cap) in caps.items():
-            row[c] = min(row[c], cap)
+        for c, v in criteria.items():
+            row[c] = max(0.0, min(row[c], float(v["max"])))
     return table
 
 
@@ -39,12 +42,12 @@ def decision_log(findings: list[Finding], decisions: dict[str, Decision]) -> lis
 
 
 def build_markdown(*, context: dict, signoff: dict, findings: list[Finding], decisions: dict[str, Decision],
-                   caps: dict[str, tuple[str, float]], not_assessed: list[str], inputs: list[dict],
+                   criteria: dict[str, dict], not_assessed: list[str], inputs: list[dict],
                    model_calls: list[dict], methods: set[str]) -> str:
     pending = undecided(findings, decisions)
     if pending:
         raise ValueError(f"{len(pending)} findings have not been reviewed; every finding needs a decision before the report is produced")
-    table = scores(findings, decisions, caps)
+    table = scores(findings, decisions, criteria)
     now = datetime.now(timezone.utc).strftime("%d %B %Y %H:%M UTC")
     L = [f"# Draft evaluation: {context['title']}", "",
          f"Tender {context['reference']} · {context['owner']} · produced {now}", "",
@@ -54,16 +57,16 @@ def build_markdown(*, context: dict, signoff: dict, findings: list[Finding], dec
          "## Criteria sign-off", "",
          f"Criteria confirmed by **{signoff['by']}** on {signoff['at']}, before any submission was read.", "",
          "## Scores (computed from reviewed findings)", "",
-         "| Tenderer | " + " | ".join(f"{t} (max {m:g})" for t, m in caps.values()) + " | Total |",
-         "|---|" + "---:|" * (len(caps) + 1)]
+         "| Tenderer | " + " | ".join(f"{v['title']} (max {v['max']:g})" for v in criteria.values()) + " | Total |",
+         "|---|" + "---:|" * (len(criteria) + 1)]
     for subject, row in sorted(table.items(), key=lambda kv: -sum(kv[1].values())):
-        L.append(f"| {subject} | " + " | ".join(f"{row[c]:g}" for c in caps) + f" | **{sum(row.values()):g}** |")
+        L.append(f"| {subject} | " + " | ".join(f"{row[c]:g}" for c in criteria) + f" | **{sum(row.values()):g}** |")
     L += ["", "## Findings by tenderer", ""]
     for subject in sorted({f.subject for f in findings}):
         L += [f"### {subject}", ""]
         for f in [x for x in findings if x.subject == subject]:
             d = decisions[f.id]
-            mark = {"accept": "Accepted", "reject": "Rejected", "modify": "Modified"}[d.action]
+            mark = {"accept": "Accepted", "reject": "Rejected", "modify": "Modified", "score": "Scored"}[d.action]
             L.append(f"- **{f.title}** ({f.basis}; {f.severity}) — {mark} by {d.evaluator}"
                      + (f": {d.reason}" if d.reason else ""))
             L.append(f"  - {d.modified_detail or f.detail}")

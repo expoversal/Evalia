@@ -1,18 +1,15 @@
-"""Extract the facts a construction bid states, each with the page and quote it comes from.
+"""Shared structures for what a submission states, and the model-based readers.
 
-Two extractors produce the same structure:
-
-- `read_forms`: a deterministic reader for bids that use the tender's standard forms.
-- `extract_with_model`: a model reads the pages, and every quote it returns is then
-  checked against the cited page and against the values it claims to support.
-
-Bid-schedule arithmetic is always read deterministically, because arithmetic is never
-left to a model.
+The deterministic form reader is in `submission.py`. The functions here send pages to
+a model through the gateway; every quote a model returns is checked afterwards against
+the cited page, and every value against its own quote. Arithmetic is never left to a
+model.
 """
 from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Literal
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 from pydantic import BaseModel, Field
@@ -77,115 +74,48 @@ class Marker(BaseModel):
     quote: str | None = None
 
 
-class BidFacts(BaseModel):
-    doc_id: str
-    bidder: str
-    method: str
-    projects: list[ProjectClaim] = []
-    ratings: list[RatingEvidence] = []
-    emr: float | None = None
-    emr_page: int | None = None
-    emr_quote: str | None = None
-    schedule: list[ScheduleRow] = []
-    stated_total: float | None = None
-    total_page: int | None = None
-    total_quote: str | None = None
-    markers: dict[str, Marker] = {}
-    pages_checked: int = 0
+class Coverage(BaseModel):
+    ref: str
+    status: Literal["addressed", "not addressed", "contradicted"]
+    page: int | None = None
+    quote: str | None = None
 
 
-def _bidder_name(doc: Document) -> str:
-    for pg in doc.pages:
-        m = re.search(r"^Bidder: (.+)$", pg.text, re.M)
-        if m:
-            return m.group(1).strip()
-    return doc.doc_id
+class CoverageReading(BaseModel):
+    """A model's mapping of the methodology against the requirements: located text, never a score."""
+    items: list[Coverage]
 
 
-def _row_quote(row: tuple[str, ...]) -> str:
-    return " ".join(c for c in row if c)
+class DeviationClass(BaseModel):
+    no: str
+    risk_head: str
 
 
-def read_schedule(doc: Document, facts: BidFacts) -> None:
-    for pg in doc.pages:
-        if "Bid Schedule" not in pg.text:
-            continue
-        for table in pg.tables:
-            if not table or table[0][:1] != ("Item",):
-                continue
-            for row in table[1:]:
-                if row[0].strip().isdigit():
-                    facts.schedule.append(ScheduleRow(
-                        item=row[0], description=row[1], unit=row[2],
-                        quantity=float(row[3].replace(",", "")), unit_price=money(row[4]) or 0.0,
-                        amount=money(row[5]) or 0.0, page=pg.number, quote=_row_quote(row)))
-    for pg in doc.pages:
-        m = re.search(r"Total base bid: (\$[\d,]+\.\d{2})", pg.text)
-        if m:
-            facts.stated_total, facts.total_page, facts.total_quote = money(m.group(1)), pg.number, m.group(0)
-            break
+class DeviationReading(BaseModel):
+    items: list[DeviationClass]
 
 
-def read_markers(doc: Document, facts: BidFacts, items: list[dict]) -> None:
-    for item in items:
-        marker = Marker(present=False)
-        for pg in doc.pages:
-            lines = [ln.strip() for ln in pg.text.splitlines()]
-            if item.get("page_heading") and item["page_heading"] in lines:
-                para = next((ln for ln in lines if ln.startswith("Principal:")), item["page_heading"])
-                marker = Marker(present=True, page=pg.number, quote=para)
-                break
-            if item.get("marker"):
-                hit = next((ln for ln in lines if item["marker"] in ln), None)
-                if hit:
-                    marker = Marker(present=True, page=pg.number, quote=hit)
-                    break
-        facts.markers[item["id"]] = marker
+def _pages(doc: Document) -> list[dict]:
+    return [{"number": p.number, "text": p.text} for p in doc.pages]
 
 
-def read_forms(doc: Document, compliance_items: list[dict]) -> BidFacts:
-    """Deterministic reading of the tender's standard forms."""
-    facts = BidFacts(doc_id=doc.doc_id, bidder=_bidder_name(doc), method="form reader (deterministic)",
-                     pages_checked=len(doc.pages))
-    for pg in doc.pages:
-        if "Statement of Experience" in pg.text:
-            for table in pg.tables:
-                if not table or "Project" not in table[0]:
-                    continue
-                for row in table[1:]:
-                    if not row[0].strip().isdigit():
-                        continue
-                    facts.projects.append(ProjectClaim(
-                        name=row[1], building_type=row[2], owner=row[3], completed=int(row[4]),
-                        contract_value=money(row[5]) or 0.0, role=row[6], claimed_rating=row[7],
-                        page=pg.number, quote=_row_quote(row)))
-        if "Owner Performance Evaluation" in pg.text:
-            proj = re.search(r"^Project: (.+)$", pg.text, re.M)
-            rating = re.search(r"^Overall performance rating: (.+)$", pg.text, re.M)
-            if proj and rating:
-                facts.ratings.append(RatingEvidence(project_name=proj.group(1).strip(), rating=rating.group(1).strip(),
-                                                    page=pg.number, quote=rating.group(0).strip()))
-        m = re.search(r"Experience Modification Rate of .+? is (\d+\.\d+)", normalise(pg.text))
-        if m:
-            facts.emr, facts.emr_page, facts.emr_quote = float(m.group(1)), pg.number, m.group(0)
-    read_schedule(doc, facts)
-    read_markers(doc, facts, compliance_items)
-    return facts
-
-
-def extract_with_model(doc: Document, gateway: Gateway, compliance_items: list[dict]) -> BidFacts:
-    """A model reads the bid; quotes and values are checked afterwards by the pipeline."""
+def extract_with_model(doc: Document, gateway: Gateway) -> ModelReading:
+    """A model reads the experience forms; quotes and values are checked afterwards by the pipeline."""
     prompt = _jinja.get_template("extract_bid.md.j2").render(
-        pages=[{"number": p.number, "text": p.text} for p in doc.pages],
-        rating_scale=["Unsatisfactory", "Marginal", "Satisfactory", "Very Good", "Exceptional"])
-    reading = gateway.structured("construction.extract_bid", prompt, ModelReading)
-    facts = BidFacts(doc_id=doc.doc_id, bidder=_bidder_name(doc), pages_checked=len(doc.pages),
-                     method=f"AI model ({gateway.profile.name}); quotes checked against pages",
-                     projects=reading.projects, ratings=reading.ratings,
-                     emr=reading.emr, emr_page=reading.emr_page, emr_quote=reading.emr_quote)
-    read_schedule(doc, facts)
-    read_markers(doc, facts, compliance_items)
-    return facts
+        pages=_pages(doc), rating_scale=["Unsatisfactory", "Marginal", "Satisfactory", "Very Good", "Exceptional"])
+    return gateway.structured("construction.extract_bid", prompt, ModelReading)
+
+
+def map_requirements_with_model(doc: Document, requirements: list[dict], gateway: Gateway) -> CoverageReading:
+    """A model locates, for each requirement, the text that addresses or contradicts it."""
+    prompt = _jinja.get_template("map_requirements.md.j2").render(pages=_pages(doc), requirements=requirements)
+    return gateway.structured("construction.map_requirements", prompt, CoverageReading)
+
+
+def classify_deviations_with_model(deviations: list[dict], risk_heads: list[str], gateway: Gateway) -> DeviationReading:
+    """A model proposes the risk head each declared deviation falls under. The evaluator confirms it."""
+    prompt = _jinja.get_template("classify_deviations.md.j2").render(deviations=deviations, risk_heads=risk_heads)
+    return gateway.structured("construction.classify_deviations", prompt, DeviationReading)
 
 
 def values_in_quote(claim: ProjectClaim) -> list[str]:

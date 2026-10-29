@@ -1,0 +1,15 @@
+You are assisting a tender evaluator. Each item below is a change a tenderer proposes to the contract. Assign each one to exactly one of the risk heads listed. You do not judge whether a change is acceptable; the client's advisers decide that.
+
+Return a single JSON object with this shape:
+
+{"items": [{"no": "1", "risk_head": "..."}]}
+
+Rules:
+1. Return one item for every proposed change, using its number.
+2. "risk_head" must be copied exactly from this list: {{ risk_heads | join("; ") }}.
+3. Return only the JSON object.
+
+Proposed changes:
+{% for d in deviations %}
+- {{ d.no }}. {{ d.particular }}. Tender requirement: {{ d.requirement }}. Proposed: {{ d.proposed }}. Reason given: {{ d.reason }}
+{% endfor %}

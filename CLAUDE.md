@@ -102,5 +102,5 @@ C:\Users\Victor\OneDrive\Evalia-data
 
 - Work on a branch and open a pull request for Victor's review. Never push to `main` directly.
 - Commit messages and pull request descriptions follow section 1 and use the labels in section 2.
-- Commands: `python -m pytest` (tests, synthetic data only); `streamlit run app/streamlit_app.py` (demo); `python scripts/make_synthetic_tender.py` (regenerate fictional documents).
+- Commands: `python -m pytest` (tests, synthetic data only); `python scripts/build_demo.py` (builds the prototype page, `build/evalia-prototype.html`); `python scripts/make_synthetic_tender.py` (regenerate fictional documents).
 - Model access for Evalia uses `EVALIA_MODEL` and `EVALIA_ANTHROPIC_API_KEY`. Never use the coding session's own credentials for the product.

@@ -1,6 +1,6 @@
 # Evalia: project rules
 
-Evalia helps clients evaluate construction tenders, as JTC Corporation's EVA does for JTC's own evaluators. It reads the submissions, maps what it finds against the client's evaluation criteria, and proposes compliance findings and scores, with its reasoning and evidence made explicit. The client's evaluators keep full authority over every score and recommendation; Evalia structures, surfaces and highlights, but does not decide. A second use, proposed by Victor, would let a bidder check its own submission for compliance before lodging it. Evalia was inspired by EVA but shares no code with it.
+Evalia helps clients evaluate construction tenders, as JTC Corporation's EVA does for JTC's own evaluators. It reads the submissions, maps what it finds against the client's evaluation criteria, and proposes compliance findings and scores, with its reasoning and evidence made explicit. The client's evaluators keep full authority over every score and recommendation; Evalia structures, surfaces and highlights, but does not decide. Evalia is software that its users run themselves; Evalia's staff take no part in any evaluation. After version one, the same engine will let a bidder check its own submission for compliance before lodging it. The first jurisdiction is the United States, and the aim is global, with less developed markets (Africa, the Middle East, Central Asia) as a deliberate niche. Evalia was inspired by EVA but shares no code with it.
 
 **Current phase:** design. No product code is written until Victor approves [`docs/04-v1-scope.md`](docs/04-v1-scope.md). Version one is limited to supporting three tender evaluations for the discovery test.
 
@@ -54,7 +54,7 @@ Rules:
 - review workbooks, reports and run records for real engagements;
 - names of bidders, projects or clients from real engagements.
 
-All confidential data lives outside the repository, in Victor's OneDrive folder:
+All confidential data lives outside the repository. Victor's development and test material is kept in his OneDrive folder (OneDrive still to be confirmed); customers using the software keep their data wherever they choose:
 
 ```
 C:\Users\Victor\OneDrive\Evalia-data
@@ -75,7 +75,7 @@ C:\Users\Victor\OneDrive\Evalia-data
 - **Deterministic checks for arithmetic, presence, dates, thresholds and set differences.** Never ask a model to do arithmetic that code can do.
 - **Every finding is traceable** to a document, a page and, where text is relied on, a verified verbatim quote.
 - **No finding or score reaches a report without human review** (accepted or amended). An evaluator who changes a proposed score must give a reason, and the reason is kept.
-- **Never act for both sides of one tender.** Evalia must not support a bidder and the evaluating client on the same tender, and one side's data must never be visible to the other.
+- **Both sides may use Evalia; their information never meets.** Evaluating clients and bidders may both use Evalia, even on the same tender (see `docs/02-architecture.md`, section 6.4). Each engagement is isolated: no document, extracted text, cache, calibration or worked example passes between engagements. The bidder profile uses only published tender documents and does not score. Evalia's staff have no access to customer engagement data without the customer's explicit, logged permission.
 - **Prompts are pack files** rendered with Jinja2 using strict undefined variables, never `str.format()`.
 
 ## 5. Using the DeepSeek material

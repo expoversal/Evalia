@@ -8,7 +8,9 @@ Evalia helps a client evaluate the tenders it has received, as JTC Corporation's
 
 **Fact.** According to the Business Times article on EVA (text supplied by Victor on 29 October 2026), JTC's construction tenders involve about eight evaluators, about 14 man-days each, about 30 documents per tenderer and about 40 tenders a year: some 34,000 man-hours annually. **Fact (computation):** 8 × 14 × 40 = 4,480 man-days, or 33,600 hours at 7.5 hours a day, which is consistent with the article's figure. The same article reports that EVA flagged a tenderer's performance ratings that its supporting documents did not substantiate.
 
-A second use, proposed by Victor, runs the same engine for a bidder: a compliance check on its own submission before it is lodged. Section 6.4 treats it as a later profile.
+Evalia is software that its users run themselves. Evalia's own staff take no part in any evaluation (decided on 29 October 2026). One engine serves two kinds of user: the evaluating client and, after version one, a bidder checking its own submission for compliance before lodging it. Section 6.4 sets out the profiles and how they are kept apart.
+
+**Market (recorded on 29 October 2026).** Evalia aims at all three kinds of client: public agencies, private owners and developers, and the consultants who evaluate for them. **Interpretation:** large, well-funded agencies such as JTC build their own tools. Agencies in less developed markets (Africa, the Middle East and Central Asia) are less likely to, and they form a niche Evalia should target. The first jurisdiction is the United States; the aim is global.
 
 Constraints that shape the design:
 
@@ -151,19 +153,43 @@ Rules for packs:
 
 ### 6.3 Jurisdiction overlays
 
-The core pack uses neutral terms. Overlays supply local vocabulary, clause numbering and registries: Singapore (PSSCOC, BCA workheads and grades), United Kingdom (JCT, NEC4), international (FIDIC), United States (AIA A201, bonding). **Recommendation:** build only the overlay that matches the discovery-test packages, and treat every registry rule as unverified until it has been checked against the issuing body's current publication. **Fact:** the Singapore details in the DeepSeek transcript include at least one doubtful item (section 3 of [`01-designed-vs-built.md`](01-designed-vs-built.md)).
+The core pack uses neutral terms. In particular, it speaks of a *pricing schedule*: a British-style bill of quantities, a US unit-price bid schedule or schedule of values, and a priced activity schedule are all forms of it. Overlays supply local vocabulary, standard forms, clause numbering and registries.
+
+Order of overlays (the first decided on 29 October 2026, the second a recommendation):
+
+1. **United States (version one).** Candidate content, all to be verified against current sources before use: AIA and EJCDC standard forms; federal procurement under the Federal Acquisition Regulation; bid, performance and payment bonds under the Miller Act and its state equivalents; state contractor licensing. **Interpretation:** US public works are often awarded to the lowest responsive and responsible bidder. For those tenders the compliance (responsiveness) review matters more than scoring, which applies to best-value and design-build procurements.
+2. **Multilateral development bank tenders (recommended second).** **Interpretation:** many public works tenders in Africa, the Middle East and Central Asia are financed by the World Bank, the African Development Bank, the Asian Development Bank or similar lenders. These use the banks' standard bidding documents, largely built on FIDIC conditions, so one overlay built on them would reach many countries at once. Verify against each bank's current procurement framework.
+3. **Others as demand appears:** FIDIC used privately, the United Kingdom (JCT, NEC4), Singapore (PSSCOC, BCA).
+
+Treat every registry and statutory rule as unverified until it has been checked against the issuing body's current publication. **Fact:** the Singapore details in the DeepSeek transcript include at least one doubtful item (section 3 of [`01-designed-vs-built.md`](01-designed-vs-built.md)).
+
+**Interpretation.** Markets beyond the United States raise three further needs:
+- submissions in French, Arabic, Russian, Portuguese and other languages;
+- data-localisation laws that may require in-country processing, which makes the self-hosted model option more important;
+- unreliable connectivity, which favours software that runs locally.
 
 ### 6.4 Profiles
 
-The engine and the pack are the same in each profile; what changes is whose criteria apply, what the output is, and who may see what.
+The engine and the pack are the same in each profile. What changes is whose criteria apply, what the output is, and who may see what.
 
 - **Evaluator profile (version one).** The client, or its consultant, evaluates several submissions. Output: compliance matrix, proposed scores with reasoning, findings, clarification questions for each bidder, and the price adjustments implied by errors and omissions. Technical evaluation can be completed before price is examined where the client's procedure requires it (section 8).
-- **Bidder profile (proposed, after version one).** A bidder checks its own draft submission against the tender's requirements before lodging it. Output: a compliance gap list with references. **Interpretation:** this is commercially distinct (more customers, smaller engagements, the bidder's own data, so consent is simpler) and must be kept apart from the evaluator profile by the rule that Evalia never acts for both sides of one tender.
+- **Bidder profile (after version one).** A bidder checks its own draft submission against the tender's published requirements before lodging it. Output: a compliance gap list with references. It does not score.
 - **Lender's adviser profile (possible, later).** One selected bid reviewed for price robustness, risk transferred through qualifications, the security package and programme against financing milestones.
+
+**Serving both sides (decided on 29 October 2026).** Evalia may serve evaluating clients and bidders, including on the same tender. It is software that each party runs for itself, and Evalia's staff take part in neither side's work. The controls therefore concern information:
+
+1. **Each engagement is isolated.** No document, extracted text, model cache, calibration setting or worked example passes from one engagement to another.
+2. **The bidder profile uses only the published tender documents.** It never uses an evaluating client's interpretations of its criteria, its anchors, its past evaluations or its decisions.
+3. **The bidder profile checks compliance and does not score.** Bidders therefore cannot tune their wording to the scoring the evaluator sees.
+4. **Evalia's staff have no access to customers' engagement data.** Any support access needs the customer's explicit, logged permission for that engagement.
+
+**Interpretation.** Compliance checks by bidders should help evaluating clients, who then receive fewer bids that must be rejected for avoidable defects.
 
 ## 7. Data layout and confidentiality
 
 The engine locates engagement data through the environment variable `EVALIA_DATA_DIR`. On Victor's machine that is `C:\Users\Victor\OneDrive\Evalia-data`. The repository never contains, or hard-codes, this path's contents.
+
+In customer use, the software runs on the customer's own machines or infrastructure, and `EVALIA_DATA_DIR` points to the customer's storage. Victor's OneDrive folder holds development and test material only. Where customers keep their data is their decision.
 
 ```
 %EVALIA_DATA_DIR%\
@@ -180,7 +206,7 @@ The engine locates engagement data through the environment variable `EVALIA_DATA
 ```
 
 - **Fact.** Model caches, review workbooks and run records contain tender text or bidder names, so they belong in the data folder, not the repository.
-- **Interpretation.** OneDrive is itself a cloud service. Whether storing a client's bids there meets the client's confidentiality terms is a question for each engagement, and `engagement.yaml` should record the answer.
+- **Interpretation.** OneDrive is itself a cloud service. Whether real tender documents may be held there during development and testing is still to be confirmed (open, 29 October 2026).
 - Tests use synthetic fixtures only, held in the repository under `tests/fixtures/synthetic/` and generated by script, so that they are visibly artificial.
 
 ## 8. Evidential integrity, proportionately
@@ -223,10 +249,15 @@ Version one has no web server, no PostgreSQL and no vector database.
 | Calibration metrics and synthetic gap injection | Next.js evaluator UI (deferred, not rejected) |
 | Fixed context structure across bidders | Operations runbook beyond what a small team needs |
 
-## 11. Open questions
+## 11. Questions answered and still open
 
-1. Who are the discovery clients: public agencies, private owners, or the consultants who evaluate for them? This decides the report format and whose evaluation criteria the pack must accommodate.
-2. Which jurisdiction do the tenders come from? This decides the single overlay to build.
-3. Will the clients share their evaluation criteria and, ideally, a past evaluation to calibrate against? Proposed scores cannot be judged without them.
-4. Does any discovery client restrict which model providers may see its data? This decides the model profile for v1 (see [`03-llm-layer.md`](03-llm-layer.md)).
-5. Is OneDrive acceptable storage under the discovery clients' confidentiality terms?
+Answered on 29 October 2026:
+- **Clients:** all three kinds, with less developed markets as a niche (section 1).
+- **First jurisdiction:** the United States (section 6.3).
+- **Client evaluation frameworks** are welcome but not required, so the pack must supply default construction criteria and anchors, which the client confirms or edits before scoring.
+- **Delivery model:** Evalia is software operated by its users.
+
+Still open:
+1. Does any client restrict which model providers may see its data? This decides the model profile (see [`03-llm-layer.md`](03-llm-layer.md)).
+2. Where do customers' data and Victor's test data live? OneDrive is to be confirmed.
+3. How do evaluators operate version one without help from Evalia: a guided workbook flow, a local application or a hosted service? See [`04-v1-scope.md`](04-v1-scope.md), section 9.

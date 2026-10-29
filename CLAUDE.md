@@ -54,7 +54,7 @@ Rules:
 - review workbooks, reports and run records for real engagements;
 - names of bidders, projects or clients from real engagements.
 
-All confidential data lives outside the repository. Victor's development and test material is kept in his OneDrive folder (OneDrive still to be confirmed); customers using the software keep their data wherever they choose:
+All confidential data lives outside the repository. Victor's development and test material is kept in his OneDrive folder (confirmed on 29 October 2026); customers using the software keep their data wherever they choose:
 
 ```
 C:\Users\Victor\OneDrive\Evalia-data

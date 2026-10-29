@@ -1,6 +1,6 @@
 # Version one scope: three supported tender evaluations for the discovery test
 
-Status: proposal for review, revised 29 October 2026 after Victor's decisions (section 9). Once approved, this document is authoritative. Anything not listed under "In scope" is out of scope until Victor approves a change, and approved changes are recorded in section 10.
+Status: proposal for review, revised 29 October 2026 after Victor's decisions (section 9). Once approved, this document is authoritative. Anything not listed under "In scope" is out of scope until Victor approves a change, and approved changes are recorded in section 11.
 
 ## 1. Objective
 
@@ -36,7 +36,7 @@ One draft evaluation per tender, covering every submission received:
    - zero-rated and "included" items.
 6. **Qualifications and departures.** Every exclusion, assumption, qualification and departure from the conditions of contract, quoted and cited.
 7. **Bonding, insurance and programme.** Bid, performance and payment bonds and insurances against the requirements; completion and milestone dates against the contract.
-8. **Rate review.** Outliers against the other submissions, when there are four or more. With fewer, the draft says the review was not possible. No pre-tender estimates will be supplied in version one.
+8. **Rate review.** Two modes, each labelled in the draft: against the other submissions, when there are four or more; and against the client's pre-tender estimate, when the client supplies one. With neither, the draft says the review was not possible.
 9. **Clarification questions** for each bidder.
 10. **Method and limitations.** Documents received, checks run and not run, unreadable pages, and how AI was used.
 11. **Appendix.** Finding register with document, page and quote; the evaluators' decision log; the hash of the run record.
@@ -50,7 +50,7 @@ Each finding states its basis:
 
 | # | Capability | Acceptance criterion |
 |---|---|---|
-| 1 | **Operable by the client's evaluators without help from Evalia**, in the form decided under open question A (section 9) | A pilot evaluator completes set-up, review and output on a synthetic tender without assistance |
+| 1 | **Operable by the client's evaluators without help from Evalia**, as a local application on the evaluator's own computer with a browser-based interface (decided under question A, section 9) | A pilot evaluator installs it, completes set-up, review and output on a synthetic tender, and uninstalls it, without assistance |
 | 2 | Engagement set-up: the evaluator registers tender documents and submissions, assigning each file a document type | No path to customer data in code or the repository; data stays where the customer keeps it |
 | 3 | Ingestion of text-layer PDF, XLSX and DOCX, with page-level provenance | Every page either yields text or appears in the limitations list |
 | 4 | Evaluation framework: the client's criteria, weights and anchors if supplied; otherwise the construction pack's defaults, confirmed or edited by the client | No proposed score is produced until the client has confirmed the criteria |
@@ -59,7 +59,7 @@ Each finding states its basis:
 | 7 | Proposed scores (SCR-01) with reasoning and verified evidence | Every proposed score cites evidence; weighted totals computed by code |
 | 8 | Substantiation check (SUB-01) | Each claim and its supporting evidence quoted from both documents, or the absence of support stated |
 | 9 | Pricing-schedule checks BQ-01 to BQ-06 (see `02-architecture.md`, section 6.2), for US unit-price and lump-sum bid forms | 100% recall on synthetic submissions with injected errors |
-| 10 | Rate review against peers (BQ-07), four or more submissions | When fewer, the draft states that the review was not possible |
+| 10 | Rate review (BQ-07): against peers (four or more submissions) and against the client's pre-tender estimate where supplied | Mode labelled; when neither is possible, the draft says so |
 | 11 | Qualifications and departures register (QX-01, CON-01) | Every entry quoted and verified; the evaluator confirms completeness |
 | 12 | Bonds, insurance (SEC-01) and programme dates (PRG-01) | Comparisons deterministic once the evaluator confirms the values |
 | 13 | Evaluator review with a decision log | No finding or score reaches the output unless accepted or amended; every change carries a reason |
@@ -79,7 +79,7 @@ Each finding states its basis:
 - **OCR of scanned documents.** Affected pages are listed as limitations.
 - **Schedule files and drawings.** Primavera P6 and Microsoft Project files are not parsed; drawings and CAD are not analysed.
 - **Languages other than English.** These are needed for the target markets beyond the United States and are planned after version one.
-- **Rate review against pre-tender estimates.** Excluded by the decision in section 9.
+- **Hosting.** Evalia does not host customer documents in version one.
 - **Overlays other than the United States.** The multilateral development bank overlay is recommended as the second.
 
 ## 5. Workflow for one tender
@@ -133,15 +133,15 @@ Sequenced by exit criterion. Effort estimates are rough and should be revised af
 
 | Milestone | Exit criterion | Rough effort |
 |---|---|---|
-| M0 Scope approved | This document and `02-architecture.md` approved; open questions A to C in section 9 answered | — |
+| M0 Scope approved | This document and `02-architecture.md` approved; question C in section 9 answered | — |
 | M1 Skeleton and synthetic golden set | Engine skeleton, construction pack v0 with default criteria and US overlay stub, synthetic tenders with injected defects; tests on synthetic data only | 1 to 2 weeks |
 | M2 Deterministic path | Ingestion, registration, BQ-01 to BQ-06, SEC-01, PRG-01, review with decision log, output template; 100% recall on injected pricing errors | 2 to 3 weeks |
 | M3 Model-assisted path | Gateway (two adapters, residency, cache), requirement extraction with threshold gate, resolver, SUB-01, QX-01, CON-01, SCR-01; golden-set metrics for at least two model profiles | 3 to 4 weeks |
-| M4 Operator interface | Item 1 met: a pilot evaluator completes a synthetic tender unaided | 2 to 4 weeks, depending on the answer to question A |
+| M4 Local application | Item 1 met: a pilot evaluator installs and completes a synthetic tender unaided | 3 to 4 weeks |
 | M5 First real evaluation | Evaluation 1 completed by a client's evaluators; debriefed | 1 to 2 weeks |
 | M6 Evaluations 2 and 3 | Completed with fixes from evaluation 1; measures collected | 2 to 3 weeks |
 
-**Speculation.** The total is roughly 11 to 18 weeks for one developer. The operator interface adds two to four weeks to the previous estimate, because clients now run the software themselves. The largest uncertainties are obtaining tenders with consent and the condition of real documents.
+**Speculation.** The total is roughly 12 to 18 weeks for one developer. The local application adds three to four weeks to the earlier estimate, because clients run the software themselves. The largest uncertainties are obtaining tenders with consent and the condition of real documents.
 
 ## 9. Decisions and open questions
 
@@ -153,37 +153,53 @@ Sequenced by exit criterion. Effort estimates are rough and should be revised af
 | 2 | Will the client consent to processing all bidders' documents, and name permitted model providers? | Yes, required | Consent and provider choice are recorded in each engagement's settings before ingestion |
 | 3 | Will clients share their evaluation framework and a past evaluation? | Not mandatory | The pack supplies default criteria and anchors; calibration against a past evaluation is optional |
 | 4 | Which jurisdiction? | United States first; the aim is global, especially less developed markets | US overlay in version one; multilateral development bank overlay recommended second; other languages after version one |
-| 5 | Will pre-tender estimates be supplied? | No | Rate review against peers only (four or more submissions) |
+| 5 | Will pre-tender estimates be supplied? | Revised: they may be; the estimate may be required for some tenders | Optional input. Rate review uses it when supplied, and peers when there are four or more submissions |
 | 6 | Who works with Evalia, and who reviews the output? | Nobody from Evalia; the client's evaluators are the end users | Software must be operable unaided (item 1); the client signs off |
 | 7 | Who is responsible for the evaluation? | The client | Output is a draft for the client's panel; wording makes the client's ownership explicit |
-| 8 | Storage | To be confirmed in early stages | See open question B |
+| 8 | Storage | Customers: wherever they choose. Victor's development and test material: OneDrive, confirmed (question B) | `CLAUDE.md`, section 3 |
 | 9 | Bidder profile timing | After version one | Out of scope for version one (section 4) |
 | — | Delivery model; serving both sides | Software operated by its users; both sides may use it under information controls | `02-architecture.md`, section 6.4; `CLAUDE.md`, section 4 |
 
-**Note on question 5.** A pre-tender estimate is the client's own costed forecast of the works, prepared before tenders arrive. **Interpretation:** without one, a tender with fewer than four submissions gets no rate review. Clients that do have an estimate could later supply it as an optional input.
+**Note on question 5.** A pre-tender estimate is the client's own costed forecast of the works, prepared before tenders arrive. **Interpretation:** it is the only basis for a rate review when there are fewer than four submissions. It also lets the draft show each bid's departure from the client's expectation, which matters most where a single bid is received.
 
 **Note on question 9.** This document reads Victor's "ok" as accepting the proposal that the bidder profile follows version one. If it was meant as preferring a bidder-side pilot first, sections 4 and 8 need revising.
 
+### Decided after the first round (29 October 2026)
+
+| # | Question | Decision |
+|---|---|---|
+| A | How do evaluators operate version one unaided? | A local application: it runs on the evaluator's own computer with a browser-based interface, and documents never leave the client. A guided workbook flow and a hosted service were rejected |
+| B | Storage of Victor's development and test material | OneDrive, confirmed |
+
 ### Still open
 
-**A. How do evaluators operate version one unaided?** Three options:
+**C. Which AI model providers may each discovery client's documents be sent to?** This decides the first model profile, and whether the self-hosted option is needed in version one. `03-llm-layer.md` sets out the options; the questions to put to each client are in section 10 of this document.
 
-| Option | For | Against |
-|---|---|---|
-| Guided workbook flow: drop files in a folder, run one launcher, review spreadsheets | Cheapest to build | Fragile for non-technical users; poor fit with "operable unaided" |
-| Local application: runs on the evaluator's own machine, with a simple browser interface on that machine | Data never leaves the client; works offline apart from model calls; suits data-localisation laws and the self-hosted model option | Installation and updates on client machines |
-| Hosted service | Easiest for users | Evalia becomes custodian of every bidder's confidential documents, with the security, residency and contractual burden that follows; conflicts with keeping staff away from customer data |
+## 10. The model-provider question for clients
 
-**Recommendation:** a local application. **Interpretation:** it fits the target markets (data-localisation rules, unreliable connectivity) and the rule that Evalia's staff never see customer data. It also keeps the discovery test free of hosting obligations.
+**Why it matters.** To read and judge submissions, Evalia sends passages of the tender documents to an AI model. Whoever runs that model receives those passages. A client must therefore decide where its bidders' confidential documents may go. Evalia records the answer in the engagement's settings and refuses any other destination (`03-llm-layer.md`, section 4).
 
-**B. Where does data live?** For customers, wherever they choose (their machine or their storage). For Victor's development and test material, OneDrive is to be confirmed.
+| Option | What happens to the documents | Strengths | Weaknesses |
+|---|---|---|---|
+| 1. Commercial AI service hosted in the United States | Sent to the provider's servers, processed and, under suitable terms, not kept or used for training | Strongest models available (interpretation); no hardware; pay per use | Documents leave the client's country; the provider is a US company |
+| 2. Commercial AI service hosted in a chosen region (for example the EU, through a major cloud provider) | Processed in that region | Similar quality to option 1; meets many residency rules | Regions on offer vary by provider and model; a US-owned provider may still be subject to US legal process |
+| 3. Open-weight model run on the client's own computer or server | Never leave the client | Strongest confidentiality; no per-use fee; works where data must stay in the country | Needs a capable machine with a graphics processor; smaller models are likely to be less accurate (speculation, to be measured on the golden set) |
 
-**C. Which model providers may the three discovery clients accept?** This decides the first model profile, and whether the self-hosted option is needed in version one.
+**Questions to put to each discovery client:**
 
-## 10. Change log
+1. May tender documents be processed by an external AI service at all?
+2. If so, must processing stay in a particular country or region, and which?
+3. Are any providers, or providers of any nationality, excluded?
+4. Do the client's rules require a contract with the provider: a data-processing agreement, no training on the data, deletion after use?
+5. If no external service is allowed: does the client have a computer with a suitable graphics processor, or a server, that could run a model?
+
+**Recommendation for version one.** Build two routes: a US-hosted commercial service, and a self-hosted model reached through the same interface. Add region-specific hosted services as clients require them. The local application uses whichever route the engagement permits.
+
+## 11. Change log
 
 | Date | Change | Approved by |
 |---|---|---|
 | 29 October 2026 | Initial proposal (scrutiny reports for owners and lenders) | Superseded |
 | 29 October 2026 | Repositioned as EVA-style evaluation support: proposed scores, substantiation check, decision log, technical-before-price sequence | Victor (positioning) |
 | 29 October 2026 | Victor's answers recorded: all client types with a less-developed-market niche; United States first; frameworks optional; no pre-tender estimates; client-operated software with no Evalia staff involved; client responsible; both sides may use Evalia; operator interface added to scope | Pending approval of the whole document |
+| 29 October 2026 | Pre-tender estimate becomes an optional input (rate review in two modes); local application chosen; OneDrive confirmed for test material; model-provider questions for clients added | Pending approval of the whole document |

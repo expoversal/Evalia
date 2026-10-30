@@ -3,6 +3,7 @@
 "use strict";
 
 const STAGES = [
+  { id: "overview", phase: "Overview", title: "Overview" },
   { id: "engagement", phase: "Prepare", title: "Engagement" },
   { id: "documents", phase: "Prepare", title: "Tender documents" },
   { id: "framework", phase: "Prepare", title: "Evaluation framework" },
@@ -17,6 +18,7 @@ const STAGES = [
   { id: "award", phase: "Decide", title: "Due diligence and award" },
   { id: "report", phase: "Decide", title: "Evaluation report" },
 ];
+const S = (id) => STAGES.findIndex(x => x.id === id);
 const DEMO = location.hash.includes("demo");
 const KEY = "evalia:" + D.context.sha256.slice(0, 16);
 const blank = () => ({ stage: 0, signoff: null, decisions: {}, editing: {}, tab: {}, status: {}, clar: {}, ack: false, mode: "client", bidder: 1, recommendation: null, approval: null, resolve: {}, dd: {}, method: "weighted", notices: null });
@@ -109,7 +111,7 @@ const pending = (stream) => F.filter(f => (!stream || f.stream === stream) && !s
 const findingsOf = (stream, name) => F.filter(f => f.stream === stream && (!name || f.subject === name));
 
 // --- layout -----------------------------------------------------------------------------------------------------------
-const locked = (i) => i >= 3 && !state.signoff;
+const locked = (i) => i >= S("receipt") && !state.signoff;
 function steps() {
   let html = "", phase = "";
   STAGES.forEach((s, i) => {
@@ -127,6 +129,73 @@ const tick = (ok) => ok ? '<span class="pill ok">✓ Yes</span>' : '<span class=
 
 // --- stages: prepare --------------------------------------------------------------------------------------------------
 const V = {};
+
+// --- stages: overview -------------------------------------------------------------------------------------------------
+// Every figure here is computed from this run and this panel's decisions. Nothing is a benchmark,
+// an estimate or a comparison with how long the work "normally" takes: no such measurement exists.
+function effort() {
+  const times = F.filter(f => state.decisions[f.id]?.at && !state.decisions[f.id].batch).map(f => Date.parse(state.decisions[f.id].at)).filter(t => !isNaN(t)).sort((a, b) => a - b);
+  const batched = F.filter(f => state.decisions[f.id]?.batch).length;
+  if (times.length < 2) return { decisions: times.length, batched, elapsed: null, median: null, quick: 0 };
+  const gaps = times.slice(1).map((t, i) => (t - times[i]) / 1000).filter(g => g < 3600);
+  const sorted = gaps.slice().sort((a, b) => a - b);
+  return { decisions: times.length, batched, elapsed: (times[times.length - 1] - times[0]) / 60000,
+           median: sorted.length ? sorted[Math.floor(sorted.length / 2)] : null,
+           quick: gaps.filter(g => g < 10).length };
+}
+V.overview = () => {
+  const P = streamPoints(), ranked = NAMES.filter(eligible).sort((a, b) => total(P[b]) - total(P[a]));
+  const decided = F.filter(f => state.decisions[f.id]), open = F.length - decided.length;
+  const sev = (x) => F.filter(f => f.severity === x).length;
+  const acts = (a) => decided.filter(f => state.decisions[f.id].action === a).length;
+  const overrides = acts("reject") + acts("modify");
+  const clar = NAMES.flatMap(clarItems).filter(f => (state.clar[f.id] || {}).status !== "Answered").length;
+  const e = effort();
+  const margin = ranked.length > 1 ? total(P[ranked[0]]) - total(P[ranked[1]]) : null;
+  const scen = ranked.length ? Object.entries(D.framework.sensitivity).map(([name, w]) => {
+    const t = reweight(Object.fromEntries(ranked.map(n => [n, P[n]])), w);
+    return [name, Object.keys(t).sort((a, b) => t[b] - t[a])[0]]; }) : [];
+  const stable = scen.length && scen.every(x => x[1] === scen[0][1]);
+  const cov = (n) => { const v = Object.values(D.coverage[n] || {}); return v.length ? v.filter(x => x === "addressed").length / v.length : null; };
+
+  return intro("Overview", `Evaluation of ${esc(D.context.title)} for ${esc(D.context.employer)}. This page is the panel's view of where the evaluation stands and what it has cost so far.`)
+    + (state.signoff ? "" : `<div class="notice" role="note" style="margin:0"><strong>Not yet opened.</strong> The framework is not signed off, so no tender has been read. The figures below fill as the panel works.</div>`)
+    + `<div class="stats"><div class="stat"><b>${ranked.length} of ${NAMES.length}</b><span>tenderers in the ranking</span></div>
+       <div class="stat ${open ? "warn" : "ok"}"><b>${decided.length} of ${F.length}</b><span>findings decided</span></div>
+       <div class="stat ${sev("critical") ? "bad" : ""}"><b>${sev("critical")}</b><span>critical findings</span></div></div>
+      <div class="stats"><div class="stat"><b>${overrides}</b><span>proposals rejected or modified</span></div>
+       <div class="stat ${clar ? "warn" : ""}"><b>${clar}</b><span>clarifications outstanding</span></div>
+       <div class="stat"><b>${D.framework.not_assessed.length}</b><span>matters Evalia did not assess</span></div></div>
+
+      <div class="card"><div class="card-head"><h2>Where each tenderer stands</h2><span class="aside">points come only from decided findings</span></div>
+        ${ranked.length ? `<div class="bars">${ranked.map(n => `<div class="rankbar"><span>${esc(short(n))}</span><div class="stack">${["technical", "commercial", "contract"].map((g, i) => `<span style="width:${P[n][g]}%;background:${COLORS[i]}"></span>`).join("")}</div><span class="num">${fmt(total(P[n]))}</span></div>`).join("")}</div>
+        <div class="legend">${["Technical", "Commercial", "Contract"].map((t, i) => `<span><span class="swatch" style="background:${COLORS[i]}"></span>${t}</span>`).join("")}</div>` : `<p class="muted small" style="margin:0">No tenderer is ranked yet.</p>`}
+        ${NAMES.filter(n => !eligible(n)).map(n => `<div class="clarify"><b>${esc(short(n))}:</b> ${!admitted(n) ? "not admitted, received after the deadline" : !responsive(n) ? "not substantially responsive" : `below the technical threshold of ${RULES.technical_pass} points`}. The panel decided this, not Evalia.</div>`).join("")}
+        ${margin != null ? `<div class="tiny">Margin over the next tenderer: ${fmt(margin)} points.${scen.length ? ` Under the ${scen.length} published weightings the leader ${stable ? "does not change" : "changes"}.` : ""}</div>` : ""}</div>
+
+      <div class="card"><div class="card-head"><h2>What this evaluation has cost so far</h2><span class="aside">measured from this run, not a benchmark</span></div>
+        <p class="small muted" style="margin:0">No published study breaks tender evaluation into its activities, so there is nothing to compare these figures against. They are recorded so that a panel can compare its own evaluations with one another.</p>
+        <div class="scroll"><table><thead><tr><th>Measure</th><th class="num">This evaluation</th><th>What it counts</th></tr></thead><tbody>
+          <tr><td>Decided one at a time</td><td class="num">${e ? e.decisions : 0}</td><td class="small">Findings the panel opened and decided individually</td></tr>
+          <tr><td>Accepted in a batch</td><td class="num">${e ? e.batched : 0}</td><td class="small">Verified findings raising no issue, disposed of in one act and recorded as such</td></tr>
+          <tr><td>Elapsed over the review</td><td class="num">${e && e.elapsed != null ? fmt(e.elapsed) + " min" : "—"}</td><td class="small">Between the first and last decision taken one at a time, including any interruption, so it is an upper bound</td></tr>
+          <tr><td>Median between decisions</td><td class="num">${e && e.median != null ? fmt(e.median) + " s" : "—"}</td><td class="small">Gaps over an hour are excluded as breaks</td></tr>
+          <tr${e && e.quick ? ' class="lead"' : ""}><td>Decisions inside 10 seconds</td><td class="num">${e ? e.quick : 0}</td><td class="small">Shown because a record of instant acceptances is the first thing a challenge will test</td></tr>
+          <tr><td>Proposals changed by the panel</td><td class="num">${overrides} of ${decided.length}</td><td class="small">${decided.length ? pct(overrides / decided.length) : "—"} of decided findings, each with a recorded reason</td></tr>
+        </tbody></table></div></div>
+
+      <div class="card"><div class="card-head"><h2>Coverage and price movement</h2></div><div class="scroll"><table><thead><tr><th>Tenderer</th><th class="num">Employer's requirements addressed</th><th class="num">Offer as stated</th><th class="num">Evaluated for comparison</th><th class="num">Movement</th></tr></thead><tbody>
+        ${NAMES.map(n => { const c = D.commercial[n] || {}, mv = (c.comparison != null && c.sum_stated != null) ? c.comparison - c.sum_stated : null, r = cov(n);
+          return `<tr class="${eligible(n) ? "" : "excluded"}"><td>${esc(short(n))}</td><td class="num">${r == null ? "—" : pct(r)}</td><td class="num">${usd(c.sum_stated)}</td><td class="num">${usd(c.comparison)}</td><td class="num">${mv == null ? "—" : (mv > 0 ? "+" : "") + usd(mv)}</td></tr>`; }).join("")}
+        </tbody></table></div>
+        <div class="tiny">Movement is the effect of the arithmetic correction, restored provisional sums and normalisation, under the rule the request for proposal sets.</div></div>
+
+      <div class="card"><div class="card-head"><h2>Recommendation</h2></div>
+        ${open ? `<p class="muted" style="margin:0">Not available: ${open} findings still need a decision. Evalia builds the report only from decided findings.</p>`
+               : `<p style="margin:0">${esc(state.recommendation || (ranked[0] ? `The panel recommends award of the combined offer to ${short(ranked[0])}, the highest-scoring responsive tender at ${fmt(total(P[ranked[0]]))} points, subject to satisfactory answers to the outstanding clarifications.` : "No tender is eligible for award."))}</p>`}
+        <div class="actions"><button class="btn secondary" onclick="go(${S("engagement")})">Open the evaluation</button>${open ? "" : `<button class="btn secondary" onclick="go(${S("report")})">Go to the report</button>`}</div></div>`;
+};
+
 V.engagement = () => intro("Engagement", `Evaluation of ${esc(D.context.title)}, request for proposal ${esc(D.context.reference)}, for ${esc(D.context.employer)}.`)
   + `<div class="grid2"><div class="card"><div class="card-head"><h2>Who is evaluating</h2></div>
       <dl class="kv"><dt>Profile</dt><dd>Client evaluating tenders</dd><dt>Client</dt><dd>${esc(D.context.employer)}</dd><dt>Evaluator</dt><dd>${esc(evaluator() || "not named")}</dd><dt>Authority</dt><dd>The client's panel decides every finding, score and recommendation</dd></dl></div>
@@ -147,7 +216,7 @@ V.engagement = () => intro("Engagement", `Evaluation of ${esc(D.context.title)},
       <div class="notice" role="note" style="margin:0"><strong>Designed, not built.</strong> In version one the evaluator registers each file on this screen and assigns its type and tenderer. This prototype received the files directly, and everything above was read from them.</div></div>
     <div class="card"><div class="card-head"><h2>How the evaluation runs</h2></div>
       <ul class="ticks"><li>Evalia reads the request for proposal and proposes the framework; the client signs it off before any tender is opened.</li><li>Tenders are opened and checked for responsiveness, then evaluated stream by stream: technical, commercial, contract and integrity.</li><li>Each finding cites its page and quote, and each quote is checked against the page. Arithmetic, thresholds and points are computed by code.</li><li>The evaluator accepts, rejects or modifies every finding, with a reason; clarifications go to tenderers; the panel signs the report.</li></ul></div>
-    ${next(1, "Read the tender documents")}`;
+    ${next(S("documents"), "Read the tender documents")}`;
 
 V.documents = () => {
   const cats = [...new Set(D.register.map(r => r.category))];
@@ -164,7 +233,7 @@ V.documents = () => {
     + `<div class="card"><div class="card-head"><h2>Consistency check</h2><span class="aside">framework against the document</span></div>
       <div class="scroll"><table><thead><tr><th>Stream</th><th class="num">Request for proposal</th><th class="num">Framework</th><th>Consistent</th></tr></thead><tbody>
       ${D.framework.consistency.map(c => `<tr><td>${esc(c.stream)}</td><td class="num">${c.rfp}</td><td class="num">${c.framework}</td><td>${tick(c.match)}</td></tr>`).join("")}</tbody></table></div></div>`
-    + next(2, "Review the evaluation framework");
+    + next(S("framework"), "Review the evaluation framework");
 };
 
 V.framework = () => {
@@ -187,7 +256,7 @@ V.framework = () => {
       <dt>Abnormally low</dt><dd>below ${pct(fw.thresholds.abnormally_low)} of the estimate</dd><dt>Pre-tender estimate</dt><dd>${usd(fw.pre_tender_estimate)} (optional client input)</dd></dl></div>
     <div class="card"><div class="card-head"><h2>Commercial rules</h2></div><dl class="kv"><dt>Award basis</dt><dd>Combined offer; split award compared</dd><dt>Arithmetic</dt><dd>Lower of stated and corrected totals</dd><dt>Provisional sums</dt><dd>Restored to the Employer's amounts</dd><dt>Sensitivity</dt><dd>${Object.keys(fw.sensitivity).map(esc).join("; ")}</dd></dl></div></div>
     <div class="card"><div class="card-head"><h2>Not assessed by Evalia</h2></div><ul class="ticks docs">${fw.not_assessed.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
-    ${s ? `<div class="ok-note">Signed off by <strong>${esc(s.by)}</strong> on ${esc(s.at)}. The framework is locked for this evaluation.</div>${next(3, "Open the tenders")}`
+    ${s ? `<div class="ok-note">Signed off by <strong>${esc(s.by)}</strong> on ${esc(s.at)}. The framework is locked for this evaluation.</div>${next(S("receipt"), "Open the tenders")}`
         : `${D.rfp_issues.length ? `<div class="card"><div class="card-head"><h2>Resolve the contradictions</h2><span class="aside">required before sign-off</span></div>${D.rfp_issues.map(i => `<div class="statusrow"><div><strong>${esc(i.key)}</strong><div class="tiny">stated as ${i.values.map(v => esc(v.value)).join(" and ")}</div></div><div class="actions"><select data-resolve="${esc(i.key)}"><option value="">Choose the value that governs…</option>${[...new Set(i.values.map(v => v.value))].map(v => `<option ${state.resolve[i.key] === v ? "selected" : ""}>${esc(v)}</option>`).join("")}</select><span class="tiny">confirm it to all tenderers by addendum</span></div></div>`).join("")}</div>` : ""}
         <div class="actions"><button class="btn" id="sign">Sign off the framework</button><span class="small muted">as ${esc(evaluator() || "…")}</span></div><div class="err" id="signerr"></div>`}`;
 };
@@ -253,7 +322,7 @@ V.receipt = () => intro("Receipt and opening", "The tenders are opened against t
     ${D.tenderers.map(t => { const late = t.received > D.context.deadline; return `<tr><td>${esc(short(t.name))}</td><td class="hash tiny">${esc((t.received || "").replace("T", " "))}</td><td>${late ? '<span class="pill bad">✕ Late</span>' : '<span class="pill ok">✓ On time</span>'}</td><td class="num">${t.pages}</td><td class="hash tiny">${t.sha256.slice(0, 16)}…</td></tr>`; }).join("")}</tbody></table></div></div>
   <div class="card"><div class="card-head"><h2>Admission</h2><span class="aside">the panel's decision</span></div>
     ${D.tenderers.filter(t => t.received > D.context.deadline).map(t => statusRow(t.name, "admitted", [["true", "Admit at the Employer's discretion"], ["false", "Do not admit"]], "true")).join("") || '<p class="muted small" style="margin:0">Every tender arrived on time.</p>'}</div>
-  ${findingsBlock("receipt")}${next(4, "Check responsiveness")}`;
+  ${findingsBlock("receipt")}${next(S("gate"), "Check responsiveness")}`;
 
 function statusRow(name, field, options, proposed) {
   const cur = statusOf(name)[field];
@@ -270,7 +339,7 @@ V.gate = () => {
     + `<div class="card"><div class="card-head"><h2>Responsiveness checks</h2></div>${matrix("gate")}</div>
     <div class="card"><div class="card-head"><h2>Status of each tender</h2><span class="aside">non-responsive tenders are not ranked</span></div>
       ${NAMES.filter(admitted).map(n => statusRow(n, "responsive", [["yes", "Responsive"], ["clarify", "Responsive, subject to clarification"], ["no", "Not responsive"]], proposedResponsive(n))).join("")}</div>
-    ${findingsBlock("gate")}${next(5, "Evaluate the technical submissions")}`;
+    ${findingsBlock("gate")}${next(S("technical"), "Evaluate the technical submissions")}`;
 };
 
 V.technical = () => {
@@ -284,7 +353,7 @@ V.technical = () => {
       ${reqs.map(r => `<tr><td><strong>${esc(r.ref)}</strong> <span class="small muted">${esc(r.text)}</span></td>${NAMES.map(n => { const st = D.coverage[n][r.ref]; const f = F.find(x => x.subject === n && x.check === "T2 " + r.ref); const cls = st === "addressed" ? "info" : st === "contradicted" ? "critical" : "attention"; return `<td><button class="cell ${cls} ${state.decisions[f.id] ? "done" : ""}" data-jump="${f.id}" title="${esc(st)}">${SEV[cls][0]}</button></td>`; }).join("")}</tr>`).join("")}</tbody></table></div>
       <div class="legend"><span>✓ addressed</span><span>! not demonstrated</span><span>✕ conflicts with the requirement</span></div></div>
     <div class="card"><div class="card-head"><h2>All technical checks</h2></div>${matrix("technical")}</div>
-    ${findingsBlock("technical")}${next(6, "Evaluate the prices")}`;
+    ${findingsBlock("technical")}${next(S("commercial"), "Evaluate the prices")}`;
 };
 
 function cashChart() {
@@ -323,21 +392,21 @@ V.commercial = () => {
         <dt>Difference</dt><dd>${D.award.split_cost > D.award.combined_cost ? `A split award would cost ${usd(D.award.split_cost - D.award.combined_cost)} more than the best combined offer` : `A split award would save ${usd(D.award.combined_cost - D.award.split_cost)}`}</dd></dl>
         <p class="tiny" style="margin:0">Prices only, with provisional sums restored; technical and contract points are in the consolidation.</p></div></div>
     <div class="card"><div class="card-head"><h2>All commercial checks</h2></div>${matrix("commercial")}</div>
-    ${findingsBlock("commercial")}${next(7, "Review contract deviations")}`;
+    ${findingsBlock("commercial")}${next(S("contract"), "Review contract deviations")}`;
 };
 
 V.contract = () => intro("Contract deviations", "Each change a tenderer proposes in Form G is set against the contract particulars, assigned to a risk head and, where it is a number, quantified at the evaluated price. Whether a change is acceptable is for the client's advisers; Evalia proposes the deduction the framework gives.")
   + `<div class="card"><div class="card-head"><h2>Deviations register</h2><span class="aside">${D.deviations.length} declared</span></div><div class="scroll"><table><thead><tr><th>Tenderer</th><th>Particular</th><th>Requirement</th><th>Proposed</th><th>Risk head</th><th></th></tr></thead><tbody>
     ${D.deviations.map(d => `<tr><td>${esc(short(d.tenderer))}</td><td>${esc(d.particular)}</td><td class="small">${esc(d.requirement)}</td><td class="small"><strong>${esc(d.proposed)}</strong></td><td class="small">${esc(d.head)}</td><td>${d.material ? '<span class="pill bad">Material</span>' : '<span class="pill warn">Minor</span>'} ${pageLink(D.tenderers.find(t => t.name === d.tenderer).doc_id, d.page, d.quote)}</td></tr>`).join("")}</tbody></table></div></div>
   <div class="card"><div class="card-head"><h2>Contract points</h2><span class="aside">10 less confirmed deductions</span></div><div class="scroll"><table><thead><tr>${NAMES.map(n => `<th class="num">${esc(short(n))}</th>`).join("")}</tr></thead><tbody><tr>${NAMES.map(n => { const r = criterionPoints(n, "K1"), p = criterionPoints(n, "K1", true); return `<td class="num">${r.open ? `<span class="prop">${fmt(p.pts)}</span>` : `<strong>${fmt(r.pts)}</strong>`}</td>`; }).join("")}</tr></tbody></table></div></div>
-  ${findingsBlock("contract")}${next(8, "Run the integrity checks")}`;
+  ${findingsBlock("contract")}${next(S("integrity"), "Run the integrity checks")}`;
 
 V.integrity = () => intro("Integrity and due diligence", "Disclosures are checked against the framework's thresholds, and the tenders are compared with each other for indicators such as identical rates or shared subcontractors. Indicators go to the procurement integrity process; they are not findings of wrongdoing.")
   + `<div class="card"><div class="card-head"><h2>Cross-tender indicators</h2></div>
     ${D.identical.map(p => `<div class="clarify"><b>${esc(short(p.a))} and ${esc(short(p.b))}:</b> identical unit rates on ${p.items.length} items (${esc(p.items.join(", "))}).</div>`).join("") || '<p class="muted small" style="margin:0">No identical rates found.</p>'}
     ${(D.owners || []).map(o => `<div class="clarify"><b>${esc(short(o.a))} and ${esc(short(o.b))}:</b> both part-owned by ${esc(short(o.owner))}.</div>`).join("")}
     ${matrix("integrity")}</div>
-  ${findingsBlock("integrity")}${next(9, "Prepare clarifications")}`;
+  ${findingsBlock("integrity")}${next(S("clarifications"), "Prepare clarifications")}`;
 
 // --- decide -----------------------------------------------------------------------------------------------------------
 const clarItems = (name) => F.filter(f => f.subject === name && f.clarify && state.decisions[f.id]?.action !== "reject" && eligible(name) && admitted(name));
@@ -356,7 +425,7 @@ V.clarifications = () => {
         ${c.status === "Answered" ? `<input type="text" data-cans="${f.id}" placeholder="Tenderer's answer" value="${esc(c.answer || "")}" style="flex:1;min-width:200px"><button class="link" data-edit="${f.id}" data-goto="${STAGES.findIndex(s => s.stream === f.stream)}">Revisit finding</button>` : ""}</div></div></div>`; }).join("")}
       <details><summary>Clarification letter</summary><div class="letter">${esc(letter(n))}</div></details>
       <div class="actions"><button class="btn secondary" data-copyletter="${esc(n)}">Copy letter</button><span class="small muted" data-copied="${esc(n)}"></span></div></div>`).join("")
-    + next(10, "Consolidate the scores");
+    + next(S("consolidation"), "Consolidate the scores");
 };
 
 V.consolidation = () => {
@@ -380,7 +449,7 @@ V.consolidation = () => {
       <tr><td>Weighted score, as published${state.method === "weighted" ? " <span class=\"pill ok\">in use</span>" : ""}</td><td>${ranked[0] ? esc(short(ranked[0])) : "—"}</td><td class="small">${ranked[0] ? fmt(total(P[ranked[0]])) + " of 100 points" : ""}</td></tr>
       <tr><td>Lowest evaluated price among technically compliant tenders</td><td>${lowest ? esc(short(lowest)) : "—"}</td><td class="small">${lowest ? usd(D.commercial[lowest].comparison) + " for comparison" : ""}</td></tr></tbody></table></div>
       <p class="small muted" style="margin:0">The request for proposal fixes the method; the comparison shows the panel how much the choice matters. Tenders below the technical threshold of ${RULES.technical_pass} points (${RULES.methodology_cutoff} for methodology) are excluded under both.</p></div>
-    ${next(11, "Due diligence and award")}`;
+    ${next(S("award"), "Due diligence and award")}`;
 };
 
 V.award = () => {
@@ -399,7 +468,7 @@ V.award = () => {
         : `To: ${short(n)}\n\nThe Employer intends to award the Contract for ${D.context.title} to ${short(top)}. Your tender was not successful because ${reason(n)}. The Contract will not be signed before the end of the standstill period of ${RULES.standstill_days} days${until ? ", ending " + until : ""}. You may ask for a debriefing within that period.`)}</div></details>`).join("")}
       ${state.notices ? `<div class="ok-note">Notices recorded as issued on ${esc(state.notices.at)}. Standstill ends ${esc(until)}; signature may follow.</div>`
         : `<div class="actions"><button class="btn" id="issue" ${done < D.framework.due_diligence.length ? "disabled" : ""}>Record the notices as issued</button><span class="small muted">${done < D.framework.due_diligence.length ? "Complete the due diligence first." : ""}</span></div>`}</div>
-    ${next(12, "Draft the evaluation report")}`;
+    ${next(S("report"), "Draft the evaluation report")}`;
 };
 
 V.report = () => {
@@ -458,7 +527,7 @@ function bidderView() {
 }
 
 // --- events -----------------------------------------------------------------------------------------------------------
-function go(i) { if (locked(i)) i = 2; state.stage = i; save(); render(); window.scrollTo({ top: 0 }); }
+function go(i) { if (locked(i)) i = S("framework"); state.stage = i; save(); render(); window.scrollTo({ top: 0 }); }
 window.go = go;
 function showPage(doc, page, quote) {
   const text = (D.pages[doc] || {})[page] || "";
@@ -471,7 +540,7 @@ function showPage(doc, page, quote) {
 $("#closepage").onclick = () => { $("#pagebox").hidden = true; };
 $("#pagebox").onclick = (e) => { if (e.target.id === "pagebox") $("#pagebox").hidden = true; };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#pagebox").hidden = true; });
-const decide = (id, d) => { state.decisions[id] = { action: d.action, reason: d.reason || "", evaluator: evaluator(), at: new Date().toISOString(), points: d.points ?? null, value: d.value ?? null }; delete state.editing[id]; };
+const decide = (id, d) => { state.decisions[id] = { action: d.action, reason: d.reason || "", evaluator: evaluator(), at: new Date().toISOString(), points: d.points ?? null, value: d.value ?? null, batch: !!d.batch }; delete state.editing[id]; };
 
 function render() {
   steps();
@@ -496,8 +565,8 @@ function render() {
     decide(id, { action: act, reason, points: act === "score" || act === "modify" ? pts : null, value: act === "modify" ? val : null }); save(); render();
   });
   on("[data-quick]", "onclick", b => { if (!evaluator()) return; decide(b.dataset.quick, { action: "accept" }); save(); render(); });
-  on("[data-bulk]", "onclick", b => { if (!evaluator()) return; for (const f of pending(b.dataset.bulk).filter(f => f.severity === "info" && f.score_max == null && f.evidence.every(e => e.verified))) decide(f.id, { action: "accept", reason: "Accepted in bulk: verified, no issue raised" }); save(); render(); });
-  on("[data-demo]", "onclick", b => { for (const f of pending(b.dataset.demo)) { if (f.score_max != null) { const cov = Object.values(D.coverage[f.subject]); const r = cov.filter(x => x === "addressed").length / cov.length; decide(f.id, { action: "score", reason: "Demo score set from requirement coverage", points: Math.round(f.score_max * r * 2) / 2 }); } else decide(f.id, { action: "accept", reason: f.severity === "info" ? "" : "Demo: accepted as proposed" }); } save(); render(); });
+  on("[data-bulk]", "onclick", b => { if (!evaluator()) return; for (const f of pending(b.dataset.bulk).filter(f => f.severity === "info" && f.score_max == null && f.evidence.every(e => e.verified))) decide(f.id, { action: "accept", reason: "Accepted in bulk: verified, no issue raised", batch: true }); save(); render(); });
+  on("[data-demo]", "onclick", b => { for (const f of pending(b.dataset.demo)) { if (f.score_max != null) { const cov = Object.values(D.coverage[f.subject]); const r = cov.filter(x => x === "addressed").length / cov.length; decide(f.id, { action: "score", reason: "Demo score set from requirement coverage", points: Math.round(f.score_max * r * 2) / 2, batch: true }); } else decide(f.id, { action: "accept", reason: f.severity === "info" ? "" : "Demo: accepted as proposed", batch: true }); } save(); render(); });
   on("[data-page]", "onclick", b => { const [doc, page] = b.dataset.page.split("|"); showPage(doc, page, b.dataset.quote); });
   on("[data-status]", "onchange", el => { const [n, field] = el.dataset.status.split("|"); state.status[n] = { ...statusOf(n), [field]: field === "admitted" ? el.value === "true" : el.value }; save(); render(); });
   on("[data-sreason]", "onchange", el => { const [n, field] = el.dataset.sreason.split("|"); state.status[n] = { ...statusOf(n), [field + "_reason"]: el.value.trim() }; save(); render(); });

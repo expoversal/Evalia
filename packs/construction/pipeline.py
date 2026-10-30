@@ -29,6 +29,7 @@ def run(rfp_path: Path, tender_paths: list[Path], receipts_path: Path) -> dict:
         subs.append((read_submission(doc, form_titles), doc))
     log = yaml.safe_load(Path(receipts_path).read_text())
     opening = log.pop("opening", {}) or {}
+    engagement = log.pop("engagement", {}) or {}
     receipts = {k: str(v) for k, v in log.items()}
     result = evaluate_all(rfp, rfp_doc, subs, receipts, fw, opening)
     sections = {h.split(".")[0] for h in rfp.headings}
@@ -49,7 +50,8 @@ def run(rfp_path: Path, tender_paths: list[Path], receipts_path: Path) -> dict:
     return {
         "context": {"reference": rfp.reference, "title": rfp.title, "employer": rfp.employer,
                     "deadline": receipts["deadline"], "deadline_text": rfp.deadline_text, "doc_id": rfp_doc.doc_id,
-                    "pages": len(rfp_doc.pages), "sha256": rfp_doc.sha256},
+                    "pages": len(rfp_doc.pages), "sha256": rfp_doc.sha256,
+                    "engagement": engagement},
         "register": register,
         "rfp_issues": [{"key": k, "values": [{"value": v, "page": pg, "quote": q, "verified": quote_on_page(rfp_doc, pg, q)}
                                              for v, pg, q in vals]}

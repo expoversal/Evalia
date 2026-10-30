@@ -21,7 +21,7 @@ const DEMO = location.hash.includes("demo");
 const KEY = "evalia:" + D.context.sha256.slice(0, 16);
 const blank = () => ({ stage: 0, signoff: null, decisions: {}, editing: {}, tab: {}, status: {}, clar: {}, ack: false, mode: "client", bidder: 1, recommendation: null, approval: null, resolve: {}, dd: {}, method: "weighted", notices: null });
 let state = blank();
-try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) state = Object.assign(blank(), saved); } catch { /* storage unavailable */ }
+try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) state = Object.assign(blank(), saved, { mode: "client" }); } catch { /* storage unavailable */ }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage unavailable */ } };
 
 const $ = (s) => document.querySelector(s);
@@ -32,6 +32,8 @@ const pct = (x) => (x * 100).toFixed(0) + "%";
 const short = (n) => String(n).replace(" (fictional)", "");
 const evaluator = () => $("#evaluator").value.trim();
 const nowText = () => { const d = new Date(); return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "long", timeZone: "UTC" })} ${d.getUTCFullYear()}, ${d.toISOString().slice(11, 16)} UTC`; };
+const clockText = (iso) => { if (!iso) return "—"; const [date, time] = String(iso).split("T"); const [y, m, d] = date.split("-");
+  return `${Number(d)} ${new Date(Date.UTC(y, m - 1, d)).toLocaleString("en-GB", { month: "long", timeZone: "UTC" })} ${y}, ${(time || "").slice(0, 5)}`; };
 const NAMES = D.tenderers.map(t => t.name);
 const F = D.findings;
 const byId = Object.fromEntries(F.map(f => [f.id, f]));
@@ -109,7 +111,6 @@ const findingsOf = (stream, name) => F.filter(f => f.stream === stream && (!name
 // --- layout -----------------------------------------------------------------------------------------------------------
 const locked = (i) => i >= 3 && !state.signoff;
 function steps() {
-  if (state.mode === "bidder") { $("#steps").innerHTML = `<div class="phase">Tenderer profile</div><button aria-current="step"><span class="n">1</span><span>Pre-submission check</span></button>`; return; }
   let html = "", phase = "";
   STAGES.forEach((s, i) => {
     if (s.phase !== phase) { phase = s.phase; html += `<div class="phase">${phase}</div>`; }
@@ -129,12 +130,21 @@ const V = {};
 V.engagement = () => intro("Engagement", `Evaluation of ${esc(D.context.title)}, request for proposal ${esc(D.context.reference)}, for ${esc(D.context.employer)}.`)
   + `<div class="grid2"><div class="card"><div class="card-head"><h2>Who is evaluating</h2></div>
       <dl class="kv"><dt>Profile</dt><dd>Client evaluating tenders</dd><dt>Client</dt><dd>${esc(D.context.employer)}</dd><dt>Evaluator</dt><dd>${esc(evaluator() || "not named")}</dd><dt>Authority</dt><dd>The client's panel decides every finding, score and recommendation</dd></dl></div>
-    <div class="card"><div class="card-head"><h2>Where the data goes</h2></div>
-      <dl class="kv"><dt>Documents</dt><dd>Read on this machine</dd><dt>AI models</dt><dd>None used in this run; any model must be permitted by the engagement's residency policy, or the call is refused</dd><dt>Isolation</dt><dd>Nothing passes to or from any other engagement</dd><dt>Evalia staff</dt><dd>No access</dd></dl></div></div>
-    <div class="card"><div class="card-head"><h2>Documents in this engagement</h2><span class="aside">fingerprinted on loading</span></div>
-      <div class="scroll"><table><thead><tr><th>Document</th><th class="num">Pages</th><th>SHA-256</th></tr></thead><tbody>
-      <tr><td>Request for proposal ${esc(D.context.reference)}</td><td class="num">${D.context.pages}</td><td class="hash tiny">${D.context.sha256.slice(0, 16)}…</td></tr>
-      ${D.tenderers.map(t => `<tr><td>${esc(short(t.name))} <span class="tiny">(sealed until opening)</span></td><td class="num">${t.pages}</td><td class="hash tiny">${t.sha256.slice(0, 16)}…</td></tr>`).join("")}</tbody></table></div></div>
+    <div class="card"><div class="card-head"><h2>Where the data goes</h2><span class="aside">set before any document was read</span></div>
+      <dl class="kv"><dt>Documents</dt><dd>${esc((D.context.engagement || {}).storage || "Read on this machine")}</dd>
+      <dt>Permitted destination</dt><dd>${esc((D.context.engagement || {}).model_permitted || "Not set")}${(D.context.engagement || {}).model_region ? `, in ${esc(D.context.engagement.model_region)}` : ""}</dd>
+      <dt>Used in this run</dt><dd>${esc((D.context.engagement || {}).model_used || "None")}</dd>
+      <dt>Anything else</dt><dd>Refused. Evalia does not fall back to another provider or region</dd>
+      <dt>Isolation</dt><dd>Nothing passes to or from any other engagement</dd><dt>Evalia staff</dt><dd>No access</dd></dl></div></div>
+    <div class="card"><div class="card-head"><h2>Register of documents</h2><span class="aside">${1 + D.tenderers.length} registered, fingerprinted on loading</span></div>
+      <p class="small muted" style="margin:0">The register fixes what was received, from whom and when, before anything is read. Receipt times come from the client's tender portal; the contents stay sealed until the framework is signed off.</p>
+      <div class="scroll"><table><thead><tr><th>Document</th><th>Type</th><th>Tenderer</th><th class="num">Pages</th><th>Received</th><th>SHA-256</th><th>Status</th></tr></thead><tbody>
+      <tr><td>Request for proposal ${esc(D.context.reference)}</td><td class="small">Request for proposal</td><td class="muted">—</td><td class="num">${D.context.pages}</td><td class="small muted">—</td><td class="hash tiny">${D.context.sha256.slice(0, 16)}…</td><td><span class="pill ok">Registered</span></td></tr>
+      ${D.tenderers.map(t => { const late = t.received && t.received > D.context.deadline;
+        return `<tr><td>${esc(short(t.name))}</td><td class="small">Submission</td><td class="small">${esc(short(t.name))}</td><td class="num">${t.pages}</td><td class="small">${esc(clockText(t.received))}</td><td class="hash tiny">${t.sha256.slice(0, 16)}…</td>
+        <td>${late ? '<span class="pill bad">After the deadline</span>' : '<span class="pill ok">Registered</span>'}</td></tr>`; }).join("")}</tbody></table></div>
+      <div class="tiny">Deadline recorded as ${esc(D.context.deadline_text)}. Evalia records a late receipt and carries it into responsiveness; whether to admit the tender is the client's decision, not Evalia's.</div>
+      <div class="notice" role="note" style="margin:0"><strong>Designed, not built.</strong> In version one the evaluator registers each file on this screen and assigns its type and tenderer. This prototype received the files directly, and everything above was read from them.</div></div>
     <div class="card"><div class="card-head"><h2>How the evaluation runs</h2></div>
       <ul class="ticks"><li>Evalia reads the request for proposal and proposes the framework; the client signs it off before any tender is opened.</li><li>Tenders are opened and checked for responsiveness, then evaluated stream by stream: technical, commercial, contract and integrity.</li><li>Each finding cites its page and quote, and each quote is checked against the page. Arithmetic, thresholds and points are computed by code.</li><li>The evaluator accepts, rejects or modifies every finding, with a reason; clarifications go to tenderers; the panel signs the report.</li></ul></div>
     ${next(1, "Read the tender documents")}`;
@@ -163,8 +173,12 @@ V.framework = () => {
     + `<div class="card"><div class="card-head"><h2>Streams and weights</h2><span class="aside">100 points for responsive tenders</span></div>
       <div class="stack" style="height:16px">${fw.streams.filter(x => x.scored).map((x, i) => `<span style="width:${x.max}%;background:${COLORS[i]}" title="${esc(x.title)}"></span>`).join("")}</div>
       <div class="legend">${fw.streams.filter(x => x.scored).map((x, i) => `<span><span class="swatch" style="background:${COLORS[i]}"></span>${esc(x.title)} ${x.max}</span>`).join("")}<span>Receipt, responsiveness and integrity: pass, clarify or refer; not scored</span></div></div>
-    <div class="card"><div class="card-head"><h2>Criteria and how each is scored</h2></div><div class="scroll"><table><thead><tr><th>Criterion</th><th class="num">Points</th><th>Method</th></tr></thead><tbody>
-      ${fw.criteria.map(c => `<tr><td><strong>${c.id}</strong> ${esc(c.title)}</td><td class="num">${c.max}</td><td class="small">${esc(c.method)}</td></tr>`).join("")}</tbody></table></div></div>
+    <div class="card"><div class="card-head"><h2>Criteria and how each is scored</h2><span class="aside">${fw.criteria.filter(c => c.default).length} of ${fw.criteria.length} need a decision from you</span></div>
+      <p class="small muted" style="margin:0">Every criterion below is traced to the clause it came from. Where the request for proposal does not state a value, Evalia proposes one and marks it. Those are the rows to settle before you sign.</p>
+      <div class="scroll"><table><thead><tr><th>Criterion</th><th class="num">Points</th><th>Method</th><th>Where it comes from</th></tr></thead><tbody>
+      ${fw.criteria.map(c => `<tr><td><strong>${c.id}</strong> ${esc(c.title)}</td><td class="num">${c.max}</td><td class="small">${esc(c.method)}</td>
+        <td class="small">${c.source ? esc(c.source) : '<span class="muted">not stated</span>'}
+        ${c.default ? `<div class="clarify" style="margin-top:var(--s2)"><span class="pill warn">Evalia's proposal</span> ${esc(c.default)}</div>` : ""}</td></tr>`).join("")}</tbody></table></div></div>
     <div class="card"><div class="card-head"><h2>Contract baseline and risk heads</h2><span class="aside">deduction: material ${fw.deduction.material}, minor ${fw.deduction.minor}</span></div><div class="scroll"><table><thead><tr><th>Particular</th><th>Requirement</th><th>Risk head</th><th>Change is</th></tr></thead><tbody>
       ${Object.entries(fw.particulars).map(([k, v]) => { const r = fw.risk_heads[k] || {}; return `<tr><td>${esc(k)}</td><td class="small">${esc(v)}</td><td class="small">${esc(r.head || "")}</td><td>${r.material ? '<span class="pill bad">Material</span>' : '<span class="pill warn">Minor</span>'}</td></tr>`; }).join("")}</tbody></table></div></div>
     <div class="grid2"><div class="card"><div class="card-head"><h2>Thresholds</h2></div><dl class="kv">
@@ -429,6 +443,8 @@ function markdown() {
 
 // --- tenderer profile -------------------------------------------------------------------------------------------------
 const OWN_ONLY = new Set(["Identical rates", "Shared ownership", "One tender per tenderer", "Letter of authority at opening", "Shared subcontractors", "Rate outliers", "Receipt time", "Evaluated price", "Pre-tender estimate", "T2 Methodology score"]);
+// Not reachable in version one: the tenderer profile follows it (docs/04-v1-scope.md, section 4).
+// Kept for that work; no control in the interface reaches it.
 function bidderView() {
   const name = NAMES[state.bidder];
   const fs = F.filter(f => f.subject === name && !OWN_ONLY.has(f.check) && f.severity !== "info");
@@ -455,15 +471,11 @@ function showPage(doc, page, quote) {
 $("#closepage").onclick = () => { $("#pagebox").hidden = true; };
 $("#pagebox").onclick = (e) => { if (e.target.id === "pagebox") $("#pagebox").hidden = true; };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#pagebox").hidden = true; });
-$("#mode-client").onclick = () => { state.mode = "client"; save(); render(); };
-$("#mode-bidder").onclick = () => { state.mode = "bidder"; save(); render(); };
 const decide = (id, d) => { state.decisions[id] = { action: d.action, reason: d.reason || "", evaluator: evaluator(), at: new Date().toISOString(), points: d.points ?? null, value: d.value ?? null }; delete state.editing[id]; };
 
 function render() {
-  $("#mode-client").setAttribute("aria-pressed", state.mode === "client");
-  $("#mode-bidder").setAttribute("aria-pressed", state.mode === "bidder");
   steps();
-  $("#main").innerHTML = state.mode === "bidder" ? bidderView() : V[STAGES[state.stage].id]();
+  $("#main").innerHTML = V[STAGES[state.stage].id]();
   const on = (sel, ev, fn) => document.querySelectorAll(sel).forEach(el => el[ev] = () => fn(el));
   const sign = $("#sign");
   on("[data-resolve]", "onchange", el => { state.resolve[el.dataset.resolve] = el.value; save(); });

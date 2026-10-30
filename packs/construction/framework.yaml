@@ -12,23 +12,37 @@ streams:
   - {id: contract, title: Contract, scored: true, max: 10}
   - {id: integrity, title: Qualification and integrity, scored: false}
 
+# source: where the criterion and its points come from in the request for proposal.
+# default: the part Evalia supplied because the document does not state it. The client
+# confirms or edits every default at sign-off; nothing marked default is Evalia's decision.
 criteria:
   - {id: T1, stream: technical, title: Quality of submission, max: 5, base: 5,
-     method: "Code: 5 points, less 1 for each required technical form that is missing"}
+     method: "Code: 5 points, less 1 for each required technical form that is missing",
+     source: "Clause 7.3, page 8; forms listed in clause 3, page 3"}
   - {id: T2, stream: technical, title: Methodology, max: 10,
-     method: "Evaluator scores 0 to 10; Evalia maps the methodology against each requirement and shows the gaps"}
+     method: "Evaluator scores 0 to 10; Evalia maps the methodology against each requirement and shows the gaps",
+     source: "Clause 7.3, page 8; threshold of 4 points in clause 7.7"}
   - {id: T3, stream: technical, title: Programme, max: 5,
-     method: "Code: 5 points within 40 weeks, 2 points within 44 weeks, otherwise 0"}
+     method: "Code: 5 points within 40 weeks, 2 points within 44 weeks, otherwise 0",
+     source: "Clause 7.3, page 8; 40 weeks required by ER-03, page 5",
+     default: "The document sets no partial credit. Evalia proposes 2 points within 44 weeks."}
   - {id: T4, stream: technical, title: Health and safety, max: 5,
-     method: "Code: Experience Modification Rate 0.85 or lower 5 points, up to 1.00 3 points, otherwise 0"}
+     method: "Code: Experience Modification Rate 0.85 or lower 5 points, up to 1.00 3 points, otherwise 0",
+     source: "Clause 7.3, page 8; certified rate required with Form J, page 3",
+     default: "The document sets no rate bands. Evalia proposes 0.85 and 1.00."}
   - {id: T5, stream: technical, title: Relevant experience, max: 10,
-     method: "Code: 2.5 points per qualifying project, checked against the owner's own evaluation, at most four"}
+     method: "Code: 2.5 points per qualifying project, checked against the owner's own evaluation, at most four",
+     source: "Clause 7.6, page 8: hotel fit-out, 2019 to 2026, at least $8,000,000, rated Satisfactory or better, as prime contractor, at most four"}
   - {id: T6, stream: technical, title: Key personnel, max: 5,
-     method: "Code: 1.25 points for each key role named with the minimum years of experience"}
+     method: "Code: 1.25 points for each key role named with the minimum years of experience",
+     source: "Clause 7.3, page 8; four roles and minimum years in clause 4.9, page 5"}
   - {id: P1, stream: commercial, title: Evaluated price, max: 50,
-     method: "Code: lowest evaluated price scores 50; others 50 times lowest over own"}
+     method: "Code: lowest evaluated price scores 50; others 50 times lowest over own",
+     source: "Clause 7.4, page 8, including correction under clause 2.6 and normalisation of provisional sums"}
   - {id: K1, stream: contract, title: Contract deviations, max: 10, base: 10,
-     method: "Code: 10 points less 3 for each material and 1 for each minor deviation, as the evaluator confirms"}
+     method: "Code: 10 points less 3 for each material and 1 for each minor deviation, as the evaluator confirms",
+     source: "Clause 7.5, page 8: 10 points less deductions according to materiality",
+     default: "The document sets no deduction amounts. Evalia proposes 3 for material and 1 for minor."}
 
 record_rule:
   id: T5

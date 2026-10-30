@@ -20,6 +20,9 @@ const STAGES = [
 ];
 const S = (id) => STAGES.findIndex(x => x.id === id);
 const DEMO = location.hash.includes("demo");
+// Recording mode: #present in the URL, or press P outside a field. Not saved: it belongs to the recording, not the evaluation.
+const present = (on) => document.documentElement.dataset.present = on ? "on" : "off";
+present(location.hash.includes("present"));
 const KEY = "evalia:" + D.context.sha256.slice(0, 16);
 const blank = () => ({ stage: 0, signoff: null, decisions: {}, editing: {}, tab: {}, status: {}, clar: {}, ack: false, mode: "client", bidder: 1, recommendation: null, approval: null, resolve: {}, dd: {}, method: "weighted", notices: null });
 let state = blank();
@@ -150,6 +153,7 @@ V.overview = () => {
   const acts = (a) => decided.filter(f => state.decisions[f.id].action === a).length;
   const overrides = acts("reject") + acts("modify");
   const clar = NAMES.flatMap(clarItems).filter(f => (state.clar[f.id] || {}).status !== "Answered").length;
+  const started = !!state.signoff && decided.length > 0;
   const e = effort();
   const margin = ranked.length > 1 ? total(P[ranked[0]]) - total(P[ranked[1]]) : null;
   const scen = ranked.length ? Object.entries(D.framework.sensitivity).map(([name, w]) => {
@@ -160,7 +164,7 @@ V.overview = () => {
 
   return intro("Overview", `Evaluation of ${esc(D.context.title)} for ${esc(D.context.employer)}. This page is the panel's view of where the evaluation stands and what it has cost so far.`)
     + (state.signoff ? "" : `<div class="notice" role="note" style="margin:0"><strong>Not yet opened.</strong> The framework is not signed off, so no tender has been read. The figures below fill as the panel works.</div>`)
-    + `<div class="stats"><div class="stat"><b>${ranked.length} of ${NAMES.length}</b><span>tenderers in the ranking</span></div>
+    + `<div class="stats"><div class="stat"><b>${started ? ranked.length + " of " + NAMES.length : NAMES.length}</b><span>${started ? "tenderers in the ranking" : "tenderers registered"}</span></div>
        <div class="stat ${open ? "warn" : "ok"}"><b>${decided.length} of ${F.length}</b><span>findings decided</span></div>
        <div class="stat ${sev("critical") ? "bad" : ""}"><b>${sev("critical")}</b><span>critical findings</span></div></div>
       <div class="stats"><div class="stat"><b>${overrides}</b><span>proposals rejected or modified</span></div>
@@ -168,10 +172,10 @@ V.overview = () => {
        <div class="stat"><b>${D.framework.not_assessed.length}</b><span>matters Evalia did not assess</span></div></div>
 
       <div class="card"><div class="card-head"><h2>Where each tenderer stands</h2><span class="aside">points come only from decided findings</span></div>
-        ${ranked.length ? `<div class="bars">${ranked.map(n => `<div class="rankbar"><span>${esc(short(n))}</span><div class="stack">${["technical", "commercial", "contract"].map((g, i) => `<span style="width:${P[n][g]}%;background:${COLORS[i]}"></span>`).join("")}</div><span class="num">${fmt(total(P[n]))}</span></div>`).join("")}</div>
+        ${!started ? `<p class="muted small" style="margin:0">No tender has been opened, so there is no ranking. Points come only from findings the panel has decided.</p>` : ranked.length ? `<div class="bars">${ranked.map(n => `<div class="rankbar"><span>${esc(short(n))}</span><div class="stack">${["technical", "commercial", "contract"].map((g, i) => `<span style="width:${P[n][g]}%;background:${COLORS[i]}"></span>`).join("")}</div><span class="num">${fmt(total(P[n]))}</span></div>`).join("")}</div>
         <div class="legend">${["Technical", "Commercial", "Contract"].map((t, i) => `<span><span class="swatch" style="background:${COLORS[i]}"></span>${t}</span>`).join("")}</div>` : `<p class="muted small" style="margin:0">No tenderer is ranked yet.</p>`}
-        ${NAMES.filter(n => !eligible(n)).map(n => `<div class="clarify"><b>${esc(short(n))}:</b> ${!admitted(n) ? "not admitted, received after the deadline" : !responsive(n) ? "not substantially responsive" : `below the technical threshold of ${RULES.technical_pass} points`}. The panel decided this, not Evalia.</div>`).join("")}
-        ${margin != null ? `<div class="tiny">Margin over the next tenderer: ${fmt(margin)} points.${scen.length ? ` Under the ${scen.length} published weightings the leader ${stable ? "does not change" : "changes"}.` : ""}</div>` : ""}</div>
+        ${!started ? "" : NAMES.filter(n => !eligible(n)).map(n => `<div class="clarify"><b>${esc(short(n))}:</b> ${!admitted(n) ? "not admitted, received after the deadline" : !responsive(n) ? "not substantially responsive" : `below the technical threshold of ${RULES.technical_pass} points`}. The panel decided this, not Evalia.</div>`).join("")}
+        ${started && margin != null ? `<div class="tiny">Margin over the next tenderer: ${fmt(margin)} points.${scen.length ? ` Under the ${scen.length} published weightings the leader ${stable ? "does not change" : "changes"}.` : ""}</div>` : ""}</div>
 
       <div class="card"><div class="card-head"><h2>What this evaluation has cost so far</h2><span class="aside">measured from this run, not a benchmark</span></div>
         <p class="small muted" style="margin:0">No published study breaks tender evaluation into its activities, so there is nothing to compare these figures against. They are recorded so that a panel can compare its own evaluations with one another.</p>
@@ -538,6 +542,13 @@ function showPage(doc, page, quote) {
   $("#pagetext").innerHTML = html; $("#pagebox").hidden = false; $("#closepage").focus();
 }
 $("#closepage").onclick = () => { $("#pagebox").hidden = true; };
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "p" && ev.key !== "P") return;
+  if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  const t = ev.target.tagName;
+  if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || ev.target.isContentEditable) return;
+  present(document.documentElement.dataset.present !== "on");
+});
 $("#pagebox").onclick = (e) => { if (e.target.id === "pagebox") $("#pagebox").hidden = true; };
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("#pagebox").hidden = true; });
 const decide = (id, d) => { state.decisions[id] = { action: d.action, reason: d.reason || "", evaluator: evaluator(), at: new Date().toISOString(), points: d.points ?? null, value: d.value ?? null, batch: !!d.batch }; delete state.editing[id]; };

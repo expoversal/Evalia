@@ -245,6 +245,19 @@ select { font: inherit; font-size: var(--t14); color: var(--text); background: v
 .letter { font-family: var(--mono); font-size: var(--t12); white-space: pre-wrap; background: var(--well); border-radius: var(--radius); padding: var(--s3); max-height: 260px; overflow: auto }
 .demo { border: 1px dashed var(--warn); color: var(--warn-text); background: transparent; box-shadow: none }
 @media (max-width: 760px) { .grid2 { grid-template-columns: minmax(0, 1fr) } .statusrow { grid-template-columns: minmax(0, 1fr) } .rankbar { grid-template-columns: minmax(0, 1fr) 56px } .rankbar .stack { grid-column: 1 / -1; order: 3 } .kv { grid-template-columns: minmax(0, 1fr) } }
+
+/* Recording mode (#present in the URL, or press P). Video compresses small type into mush,
+   so the three smallest sizes are lifted and the working column widened to match. */
+:root[data-present="on"] { font-size: 118% }
+:root[data-present="on"] main { max-width: 1120px }
+:root[data-present="on"] .tiny, :root[data-present="on"] thead th,
+:root[data-present="on"] nav.steps .n, :root[data-present="on"] nav.steps .badge,
+:root[data-present="on"] .legend, :root[data-present="on"] .tag,
+:root[data-present="on"] .pill, :root[data-present="on"] .quote .src { font-size: var(--t14) }
+:root[data-present="on"] .small, :root[data-present="on"] table,
+:root[data-present="on"] .sub, :root[data-present="on"] nav.steps button { font-size: var(--t16) }
+:root[data-present="on"] .quote q { font-size: var(--t16) }
+@media (max-width: 760px) { :root[data-present="on"] { font-size: 100% } }
 </style>
 </head>
 <body>

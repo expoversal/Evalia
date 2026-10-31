@@ -162,7 +162,7 @@ V.overview = () => {
   const stable = scen.length && scen.every(x => x[1] === scen[0][1]);
   const cov = (n) => { const v = Object.values(D.coverage[n] || {}); return v.length ? v.filter(x => x === "addressed").length / v.length : null; };
 
-  return intro("Overview", `Evaluation of ${esc(D.context.title)} for ${esc(D.context.employer)}. This page is the panel's view of where the evaluation stands and what it has cost so far.`)
+  return intro("Overview", `Evaluation of ${esc(D.context.title)} for ${esc(D.context.employer)}. Evalia gives defensible AI evaluation for tenders and grants: a language model reads each bid, code checks every quote and number, and the panel decides. This example is a construction tender. This page is the panel's view of where the evaluation stands and what it has cost so far.`)
     + (state.signoff ? "" : `<div class="notice" role="note" style="margin:0"><strong>Not yet opened.</strong> The framework is not signed off, so no tender has been read. The figures below fill as the panel works.</div>`)
     + `<div class="stats"><div class="stat"><b>${started ? ranked.length + " of " + NAMES.length : NAMES.length}</b><span>${started ? "tenderers in the ranking" : "tenderers registered"}</span></div>
        <div class="stat ${open ? "warn" : "ok"}"><b>${decided.length} of ${F.length}</b><span>findings decided</span></div>

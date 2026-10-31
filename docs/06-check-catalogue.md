@@ -8,12 +8,12 @@ The documents themselves are tender data and are not stored in this repository (
 
 | Ref | Type | Procurement | Region |
 |---|---|---|---|
-| A | Request for proposal, interior fit-out works | Private developer, pre-qualified tenderers, technical and commercial volumes | Middle East |
-| B | Invitation to tender, hotel furniture, fixtures and equipment, supply and install | Private developer, by invitation, two envelopes opened in two stages | Middle East |
-| C | Request for proposal, temporary art installations (services, supply and works) | Public body, electronic two-envelope submission | Middle East |
-| D | Instructions to tenderers, information technology supply in three lots | Public, under the EU external-action rules | Western Balkans |
-| E | Design-and-build marine works, draft tender document | Grant-funded, restricted to pre-qualified firms | South Asia |
-| F | Instructions to tenderers, public building works | Public, open national tender under a national standard document | East Africa |
+| A | Request for proposal, interior fit-out works | Private developer, pre-qualified tenderers, technical and commercial volumes | Not stated |
+| B | Invitation to tender, hotel furniture, fixtures and equipment, supply and install | Private developer, by invitation, two envelopes opened in two stages | Not stated |
+| C | Request for proposal, temporary art installations (services, supply and works) | Public body, electronic two-envelope submission | Not stated |
+| D | Instructions to tenderers, information technology supply in three lots | Public, under the EU external-action rules | Not stated |
+| E | Design-and-build marine works, draft tender document | Grant-funded, restricted to pre-qualified firms | Not stated |
+| F | Instructions to tenderers, public building works | Public, open national tender under a national standard document | Not stated |
 
 ## 2. What the sample shows
 

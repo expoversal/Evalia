@@ -1,6 +1,8 @@
 # Evalia
 
-Evalia helps clients evaluate construction tenders. It proposes compliance findings and scores, with explicit reasoning and cited evidence, and the client's evaluators decide. A proof-of-concept demo is under construction.
+**AI reads the bids. Your panel decides.** Evalia is defensible AI evaluation for tenders and grants, starting with construction tenders. It proposes findings and scores against the published criteria, each quoted to its page; code checks every quote and number; and the client's evaluators decide every finding, with their reasons kept.
+
+**Status, 31 October 2026.** A working prototype runs a complete thirteen-stage evaluation on fictional documents: [open the prototype](https://claude.ai/artifact/SW4uWq6U1b8wj1ESLUoZQY). Fact: it makes no call to a language model yet. Every reading is deterministic code standing in for the model; the model gateway, prompts and output schemas are built and tested against a stand-in, but not connected.
 
 | Document | What it covers |
 |---|---|

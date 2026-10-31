@@ -24,17 +24,33 @@ const DEMO = location.hash.includes("demo");
 const present = (on) => document.documentElement.dataset.present = on ? "on" : "off";
 present(location.hash.includes("present"));
 const KEY = "evalia:" + D.context.sha256.slice(0, 16);
-const blank = () => ({ stage: 0, signoff: null, decisions: {}, editing: {}, tab: {}, status: {}, clar: {}, ack: false, mode: "client", bidder: 1, recommendation: null, approval: null, resolve: {}, dd: {}, method: "weighted", notices: null });
+const blank = () => ({ stage: 0, signoff: null, decisions: {}, editing: {}, tab: {}, status: {}, clar: {}, ack: false, mode: "client", bidder: 1, recommendation: null, approval: null, resolve: {}, dd: {}, method: "weighted", notices: null, blind: true, reveal: null });
 let state = blank();
 try { const saved = JSON.parse(localStorage.getItem(KEY) || "null"); if (saved) state = Object.assign(blank(), saved, { mode: "client" }); } catch { /* storage unavailable */ }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { /* storage unavailable */ } };
 
 const $ = (s) => document.querySelector(s);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const esc = (s) => mask(String(s ?? "")).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const usd = (n) => n == null ? "" : "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const fmt = (n) => n == null ? "" : (Math.round(n * 100) / 100).toString();
 const pct = (x) => (x * 100).toFixed(0) + "%";
 const short = (n) => String(n).replace(" (fictional)", "");
+// --- blind scoring --------------------------------------------------------------------------------------------------
+// While blind scoring is on and identities have not been revealed, the stages that score quality show tenderers as A, B
+// and C, and every rendered string has the tenderers' names replaced. Stages that need identities (the register, receipt,
+// integrity checks) are exempt: a track record cannot be anonymised, so qualification is by identity and scoring is not.
+const BLIND_EXEMPT = new Set(["engagement", "documents", "receipt", "integrity"]);
+const blindOn = () => !!state.blind && !state.reveal && !BLIND_EXEMPT.has(STAGES[state.stage].id);
+const label = (n) => "Tenderer " + String.fromCharCode(65 + NAMES.indexOf(n));
+let ALIASES = null;
+function mask(t) {
+  if (!blindOn() || !t) return t;
+  if (!ALIASES) ALIASES = NAMES.flatMap(n => { const sh = short(n), base = sh.replace(/,? (Inc\.|LLC|Ltd\.?|Contractors)$/i, "").trim();
+    return [...new Set([n, sh, base, base.split(" ")[0]])].filter(a => a.length > 5).map(a => [a, label(n)]); }).sort((a, b) => b[0].length - a[0].length);
+  for (const [a, l] of ALIASES) t = t.split(a).join(l);
+  return t;
+}
+const name = (n) => blindOn() && NAMES.includes(n) ? label(n) : short(n);
 const evaluator = () => $("#evaluator").value.trim();
 const nowText = () => { const d = new Date(); return `${d.getUTCDate()} ${d.toLocaleString("en-GB", { month: "long", timeZone: "UTC" })} ${d.getUTCFullYear()}, ${d.toISOString().slice(11, 16)} UTC`; };
 const clockText = (iso) => { if (!iso) return "—"; const [date, time] = String(iso).split("T"); const [y, m, d] = date.split("-");
@@ -438,8 +454,13 @@ V.consolidation = () => {
   const scen = Object.entries(D.framework.sensitivity).map(([name, w]) => { const t = reweight(Object.fromEntries(ranked.map(n => [n, P[n]])), w); return [name, Object.keys(t).sort((a, b) => t[b] - t[a]), t]; });
   const stable = scen.every(s => s[1][0] === scen[0][1][0]);
   const lowest = ranked.slice().sort((a, b) => D.commercial[a].comparison - D.commercial[b].comparison)[0];
+  const rv = state.reveal;
   return intro("Consolidation and ranking", "Points come only from decided findings, under the framework signed off before opening. Tenders that were not admitted or not responsive are not ranked.")
     + (open ? `<div class="notice" style="margin:0">${open} findings are still undecided. They carry no points, so this ranking is provisional.</div>` : "")
+    + (state.blind ? `<div class="card"><div class="card-head"><h2>Identities</h2><span class="aside">${rv ? "revealed" : "masked during scoring"}</span></div>
+      ${rv ? `<p style="margin:0">Revealed by ${esc(rv.by)} on ${esc(rv.at)}, after ${rv.decided} of ${F.length} findings had been decided${rv.open ? ` (${rv.open} still open)` : ""}. The decision log records it.</p>`
+           : `<p style="margin:0 0 10px">The quality streams were scored with tenderers shown as A, B and C. Reveal the identities once scoring is complete: the log will record who revealed them, when, and how many findings were still open.</p>
+              <div class="actions"><button id="reveal" class="btn">Reveal identities</button><span class="err" id="reverr"></span></div>`}</div>` : "")
     + `<div class="card"><div class="card-head"><h2>Scores</h2><span class="aside">out of 100</span></div><div class="scroll"><table><thead><tr><th>Tenderer</th><th>Status</th><th class="num">Technical</th><th class="num">Commercial</th><th class="num">Contract</th><th class="num">Total</th><th class="num">Rank</th></tr></thead><tbody>
       ${NAMES.map(n => { const r = P[n], el = eligible(n); return `<tr class="${el ? "" : "excluded"}"><td>${esc(short(n))}</td><td>${!admitted(n) ? '<span class="pill bad">Not admitted</span>' : !responsive(n) ? '<span class="pill bad">Not responsive</span>' : techPass(n) === false ? '<span class="pill bad">Below technical threshold</span>' : responsiveStatus(n) === "clarify" ? '<span class="pill warn">Subject to clarification</span>' : '<span class="pill ok">Responsive</span>'}</td>
         <td class="num">${fmt(r.technical)}</td><td class="num">${fmt(r.commercial)}</td><td class="num">${fmt(r.contract)}</td><td class="num"><strong>${el ? fmt(total(r)) : "—"}</strong></td><td class="num">${el ? ranked.indexOf(n) + 1 : "—"}</td></tr>`; }).join("")}</tbody></table></div>
@@ -502,7 +523,7 @@ function reportHTML(P, ranked) {
     <h3>Clarifications</h3><ul>${NAMES.flatMap(clarItems).filter(f => (state.clar[f.id] || {}).include !== false).map(f => { const c = state.clar[f.id] || {}; return `<li>${esc(short(f.subject))}: ${esc(f.clarify)} <span class="tiny">(${esc(c.status || "Draft")}${c.answer ? "; answer: " + esc(c.answer) : ""})</span></li>`; }).join("")}</ul>
     <h3>Decision log</h3><div class="scroll"><table><thead><tr><th>Time (UTC)</th><th>Finding</th><th>Decision</th><th class="num">Points</th></tr></thead><tbody>${log.map(d => `<tr><td class="hash tiny">${esc(d.at.slice(11, 19))}</td><td>${esc(short(byId[d.id].subject))}: ${esc(byId[d.id].title)}${d.reason ? `<div class="tiny">${esc(d.reason)}</div>` : ""}</td><td>${DONE[d.action]}</td><td class="num">${fmt(finalPoints(byId[d.id]))}</td></tr>`).join("")}</tbody></table></div>
     <h3>Not assessed</h3><ul>${D.framework.not_assessed.map(x => `<li>${esc(x)}</li>`).join("")}</ul>
-    <h3>Method</h3><ul><li>Every quote was checked against the page it cites.</li><li>Arithmetic, thresholds, points and ranking were computed by code, never by a model.</li><li>Methods used: ${esc([...new Set(F.map(f => f.method))].join("; "))}.</li><li>The evaluator acknowledged that AI-assisted findings can be wrong before producing this draft.</li></ul></div>`;
+    <h3>Method</h3><ul>${state.blind ? `<li>${state.reveal ? `Quality streams were scored blind, with tenderers shown as A, B and C; identities were revealed by ${esc(state.reveal.by)} on ${esc(state.reveal.at)} with ${state.reveal.open} findings still open.` : "Quality streams are being scored blind; identities have not yet been revealed."}</li>` : ""}<li>Every quote was checked against the page it cites.</li><li>Arithmetic, thresholds, points and ranking were computed by code, never by a model.</li><li>Methods used: ${esc([...new Set(F.map(f => f.method))].join("; "))}.</li><li>The evaluator acknowledged that AI-assisted findings can be wrong before producing this draft.</li></ul></div>`;
 }
 function markdown() {
   const P = streamPoints(), ranked = NAMES.filter(eligible).sort((a, b) => total(P[b]) - total(P[a]));
@@ -555,7 +576,7 @@ const decide = (id, d) => { state.decisions[id] = { action: d.action, reason: d.
 
 function render() {
   steps();
-  $("#main").innerHTML = V[STAGES[state.stage].id]();
+  $("#main").innerHTML = (blindOn() ? `<div class="notice blind" role="note"><strong>Blind scoring.</strong> Tenderers are shown as A, B and C, and their names are masked in every quote, until the panel reveals identities at consolidation. The register, receipt and integrity checks use identities, because a track record cannot be anonymised.</div>` : "") + V[STAGES[state.stage].id]();
   const on = (sel, ev, fn) => document.querySelectorAll(sel).forEach(el => el[ev] = () => fn(el));
   const sign = $("#sign");
   on("[data-resolve]", "onchange", el => { state.resolve[el.dataset.resolve] = el.value; save(); });
@@ -590,12 +611,14 @@ function render() {
   const approve = $("#approve"); if (approve) approve.onclick = () => { const by = $("#chair").value.trim(); if (!by) { $("#apperr").textContent = "Enter the panel chair's name."; return; } state.approval = { by, at: nowText() }; save(); render(); };
   const cp = $("#copymd"); if (cp) cp.onclick = async () => { try { await navigator.clipboard.writeText(markdown()); $("#copied").textContent = "Copied."; } catch { $("#copied").textContent = "Copying is blocked here."; } };
   const sj = $("#savejson"); if (sj) sj.onclick = async () => {
-    const record = JSON.stringify({ engagement: D.context, signoff: state.signoff, status: state.status, decisions: state.decisions, clarifications: state.clar, recommendation: state.recommendation, approval: state.approval }, null, 1);
+    const record = JSON.stringify({ engagement: D.context, signoff: state.signoff, status: state.status, decisions: state.decisions, blind: state.blind, reveal: state.reveal, clarifications: state.clar, recommendation: state.recommendation, approval: state.approval }, null, 1);
     if (window.top !== window) { try { await navigator.clipboard.writeText(record); $("#copied").textContent = "Decision record copied (downloads are not available in this viewer)."; } catch { $("#copied").textContent = "Copying is blocked here."; } return; }
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([record], { type: "application/json" })); a.download = `evalia-decisions-${D.context.reference}.json`; a.click();
   };
   on("[data-dd]", "onchange", el => { state.dd[el.dataset.dd] = { ...(state.dd[el.dataset.dd] || {}), ok: el.checked }; save(); render(); });
   on("[data-ddnote]", "onchange", el => { state.dd[el.dataset.ddnote] = { ...(state.dd[el.dataset.ddnote] || {}), note: el.value }; save(); });
+  const rvb = $("#reveal"); if (rvb) rvb.onclick = () => { if (!evaluator()) { $("#reverr").textContent = "Enter your name under Evaluator first."; return; }
+    state.reveal = { by: evaluator(), at: nowText(), iso: new Date().toISOString(), decided: F.filter(f => state.decisions[f.id]).length, open: pending().length }; save(); render(); };
   const issue = $("#issue"); if (issue) issue.onclick = () => { state.notices = { at: nowText(), iso: new Date().toISOString(), by: evaluator() }; save(); render(); };
   const bsel = $("#bsel"); if (bsel) bsel.onchange = () => { state.bidder = +bsel.value; save(); render(); };
 }

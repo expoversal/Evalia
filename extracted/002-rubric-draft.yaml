@@ -1,0 +1,18 @@
+tender_type: construction
+criteria:
+  - id: C1
+    name: "Track record"
+    weight: 25
+    type: scored          # scored | pass_fail | informational
+    scale: {min: 0, max: 10}
+    guidance: "..."
+    evidence_required: ["project list", "completion certificates"]
+    mandatory: false
+  - id: C2
+    name: "Financial capacity"
+    weight: 0
+    type: pass_fail
+    rule: "bidder_equity >= 0.3 * contract_value"
+gates:
+  - id: G1
+    rule: "all mandatory documents present"

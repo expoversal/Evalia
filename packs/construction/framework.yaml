@@ -1,0 +1,150 @@
+# Default evaluation framework for a building fit-out tender. Evalia proposes it from the
+# request for proposal and these pack defaults; the client edits it and signs it off before
+# any submission is opened. Construction knowledge lives here, not in the engine.
+award_basis: combined
+correction_rule: lower_of_stated_and_corrected
+
+streams:
+  - {id: receipt, title: Receipt and opening, scored: false}
+  - {id: gate, title: Responsiveness, scored: false}
+  - {id: technical, title: Technical, scored: true, max: 40}
+  - {id: commercial, title: Commercial, scored: true, max: 50}
+  - {id: contract, title: Contract, scored: true, max: 10}
+  - {id: integrity, title: Qualification and integrity, scored: false}
+
+# source: where the criterion and its points come from in the request for proposal.
+# default: the part Evalia supplied because the document does not state it. The client
+# confirms or edits every default at sign-off; nothing marked default is Evalia's decision.
+criteria:
+  - {id: T1, stream: technical, title: Quality of submission, max: 5, base: 5,
+     method: "Code: 5 points, less 1 for each required technical form that is missing",
+     source: "Clause 7.3, page 8; forms listed in clause 3, page 3"}
+  - {id: T2, stream: technical, title: Methodology, max: 10,
+     method: "Evaluator scores 0 to 10; Evalia maps the methodology against each requirement and shows the gaps",
+     source: "Clause 7.3, page 8; threshold of 4 points in clause 7.7"}
+  - {id: T3, stream: technical, title: Programme, max: 5,
+     method: "Code: 5 points within 40 weeks, 2 points within 44 weeks, otherwise 0",
+     source: "Clause 7.3, page 8; 40 weeks required by ER-03, page 5",
+     default: "The document sets no partial credit. Evalia proposes 2 points within 44 weeks."}
+  - {id: T4, stream: technical, title: Health and safety, max: 5,
+     method: "Code: Experience Modification Rate 0.85 or lower 5 points, up to 1.00 3 points, otherwise 0",
+     source: "Clause 7.3, page 8; certified rate required with Form J, page 3",
+     default: "The document sets no rate bands. Evalia proposes 0.85 and 1.00."}
+  - {id: T5, stream: technical, title: Relevant experience, max: 10,
+     method: "Code: 2.5 points per qualifying project, checked against the owner's own evaluation, at most four",
+     source: "Clause 7.6, page 8: hotel fit-out, 2019 to 2026, at least $8,000,000, rated Satisfactory or better, as prime contractor, at most four"}
+  - {id: T6, stream: technical, title: Key personnel, max: 5,
+     method: "Code: 1.25 points for each key role named with the minimum years of experience",
+     source: "Clause 7.3, page 8; four roles and minimum years in clause 4.9, page 5"}
+  - {id: P1, stream: commercial, title: Evaluated price, max: 50,
+     method: "Code: lowest evaluated price scores 50; others 50 times lowest over own",
+     source: "Clause 7.4, page 8, including correction under clause 2.6 and normalisation of provisional sums"}
+  - {id: K1, stream: contract, title: Contract deviations, max: 10, base: 10,
+     method: "Code: 10 points less 3 for each material and 1 for each minor deviation, as the evaluator confirms",
+     source: "Clause 7.5, page 8: 10 points less deductions according to materiality",
+     default: "The document sets no deduction amounts. Evalia proposes 3 for material and 1 for minor."}
+
+record_rule:
+  id: T5
+  title: Relevant experience
+  keyword_field: building_type
+  keywords: [hotel fit-out]
+  year_field: completed
+  year_min: 2019
+  year_max: 2026
+  value_field: contract_value
+  value_min: 8000000
+  rating_field: rating
+  rating_scale: [Unsatisfactory, Marginal, Satisfactory, Very Good, Exceptional]
+  rating_min: Satisfactory
+  role_field: role
+  role_required: Prime contractor
+  points_per_record: 2.5
+  max_records: 4
+
+band_rules:
+  - id: T3
+    title: Programme
+    field: programme_weeks
+    bands:
+      - {up_to: 40, points: 5}
+      - {up_to: 44, points: 2}
+      - {up_to: null, points: 0}
+  - id: T4
+    title: Health and safety (Experience Modification Rate)
+    field: emr
+    bands:
+      - {up_to: 0.85, points: 5}
+      - {up_to: 1.00, points: 3}
+      - {up_to: null, points: 0}
+
+technical_forms:
+  - Form C - Key Personnel
+  - Form E - Programme
+  - Form F - Proposed Subcontractors
+  - Form H - Methodology
+  - Form I - Quality Plan
+  - "Form J - Health, Safety and Environment Plan"
+  - Form K - Relevant Experience
+  - Form L - BIM Capability
+
+# Contract particulars, the risk head each falls under, and whether a change to it is material.
+risk_heads:
+  Advance payment: {head: Payment and security, material: true}
+  Retention: {head: Payment and security, material: true}
+  Performance bond: {head: Performance security, material: true}
+  Delay damages: {head: Delay damages, material: true}
+  Defects liability period: {head: Defects liability, material: true}
+  Limit of liability: {head: Limit of liability, material: true}
+  Insurance: {head: Insurance, material: false}
+  Existing conditions: {head: Existing conditions and design risk, material: true}
+deduction: {material: 3, minor: 1}
+
+# Phrases that suggest a deviation or qualification stated outside Form G.
+qualification_phrases: [assume, exclude, subject to, qualif, not included]
+
+# Prototype stand-in for a model reading: a requirement counts as addressed when every
+# group has at least one match in the same methodology paragraph.
+requirement_keywords:
+  ER-01: [[open], [hours]]
+  ER-02: [[mock-up], [approv]]
+  ER-03: []
+  ER-04: [["08:00"]]
+  ER-05: [[LOD 300], [as-built]]
+  ER-06: [[fire-stopping], [third-party]]
+  ER-07: [[service dock]]
+  ER-08: [[waste], ["%"]]
+numeric_requirements:
+  ER-03: {source: programme_weeks, max: 40}
+  ER-08: {pattern: "divert (\\d+)% of construction waste", min: 75}
+
+thresholds:
+  rate_outlier: 0.25
+  identical_rates_min: 3
+  front_loading_share: 0.3
+  front_loading_max: 0.38
+  litigation_value: 5000000
+  abnormally_low: 0.85
+
+# Optional client input: the pre-tender estimate for the evaluated (combined) price.
+pre_tender_estimate: 18300000
+
+# Due diligence on the preferred tenderer, after ranking and before award.
+due_diligence:
+  - Contact the owners named in the reference projects and confirm scope, value and performance
+  - Verify the contractor licence and tax clearance with the issuing authorities
+  - Obtain and review audited accounts and a bank reference
+  - Confirm the key personnel are available for the programme
+  - Check the tenderer and its directors against debarment and sanctions lists
+  - Confirm answers to every outstanding clarification
+
+sensitivity:
+  As published (40/50/10): {technical: 40, commercial: 50, contract: 10}
+  Technical-led (50/40/10): {technical: 50, commercial: 40, contract: 10}
+  Price-led (30/60/10): {technical: 30, commercial: 60, contract: 10}
+
+not_assessed:
+  - Financial standing of each tenderer (accounts and credit checks), which needs records outside the tender
+  - Licences and registrations, which need checks against the issuing registries
+  - References and site visits to the tenderers' completed projects
+  - Pages without a text layer (scanned images), if any

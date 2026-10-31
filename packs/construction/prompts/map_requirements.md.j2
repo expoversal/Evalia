@@ -1,0 +1,23 @@
+You are assisting a tender evaluator. For each of the client's requirements below, find the text in the tenderer's submission that addresses it. You do not score, judge quality or recommend anything.
+
+Return a single JSON object with this shape:
+
+{"items": [{"ref": "ER-01", "status": "addressed", "page": 7, "quote": "..."}]}
+
+Rules:
+1. Return one item for every requirement, in the order given.
+2. "status" is "addressed" if the submission states how it will meet the requirement, "contradicted" if it states something incompatible with it, and "not addressed" if you find nothing.
+3. For "addressed" and "contradicted", "quote" must be copied exactly from the page given in "page": one whole sentence. Do not paraphrase or join text from different places.
+4. For "not addressed", leave "page" and "quote" out.
+5. Return only the JSON object.
+
+Requirements:
+{% for r in requirements %}
+- {{ r.ref }}: {{ r.text }}
+{% endfor %}
+
+The submission follows, page by page.
+{% for page in pages %}
+=== Page {{ page.number }} ===
+{{ page.text }}
+{% endfor %}

@@ -1,0 +1,12 @@
+1. All technical rows must have human_status set (or explicitly "unreviewed")
+   → lead triggers seal
+2. Sealing service:
+   - reads all technical.compliance_rows for tender
+   - reads all technical.criterion_scores
+   - sorts canonically
+   - computes Merkle root
+   - signs with Ed25519 (key in HSM/KMS)
+   - inserts technical.seals row
+3. Once sealed:
+   - writes to technical.* REJECTED except via unseal (which requires 2-person + audit)
+   - commercial envelope unlocks

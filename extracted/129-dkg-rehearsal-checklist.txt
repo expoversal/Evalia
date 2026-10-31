@@ -1,0 +1,20 @@
+[ ] Tool hash published and verified by all stand-in participants
+[ ] Each stand-in participant's laptop configured and air-gap verified
+[ ] YubiKeys provisioned, hash-verified
+[ ] Full ceremony run end-to-end (both rounds + finalisation)
+[ ] Threshold signature produced and verified against group pubkey
+[ ] Each participant's share independently verifies:
+      g^(x_j) == Y_j (Feldman check)
+[ ] Group pubkey verified: Y == ∏ C_i[0] (public reconstruction check)
+[ ] Paper transcript produced, notarised
+[ ] Video recording produced, archived
+[ ] Post-ceremony wipe verified (forensic scan of one laptop)
+[ ] Re-run the ceremony with a deliberately corrupted message in Round 1:
+      expected behavior = STOP, restart
+[ ] Re-run with one participant complaining in Round 2:
+      expected behavior = complaint recorded, ceremony paused, then restarted
+      with a replacement participant
+[ ] Re-run with a laptop crash mid-Round 2:
+      expected behavior = participant restarts, ceremony continues from that point
+[ ] Share refresh run for one participant's deputy
+      expected behavior = deputy share works in a test signing

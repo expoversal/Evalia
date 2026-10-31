@@ -1,0 +1,14 @@
+1. Lead initiates seal → creates a pending_approval record (no signature yet)
+2. System constructs a SIGNING CHALLENGE containing:
+     - Tender reference + envelope name
+     - Merkle root of the snapshot
+     - Leaf count
+     - Snapshot hash (SHA-256 of the full snapshot JSON)
+     - Coverage statistics (unreviewed=0, needs_clarification=0)
+     - Timestamp
+3. Challenge is displayed to the lead for review (large, human-readable)
+4. Lead approves → request routed to the HSM
+5. HSM signs the EXACT challenge → returns signature
+6. System verifies the returned signature against the challenge + the CURRENT seal pubkey
+7. Signature + snapshot stored in `seals` table
+8. Audit entry written with full challenge + response

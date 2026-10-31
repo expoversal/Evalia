@@ -1,0 +1,1 @@
+Group pubkey → anchored in Rekor + RFC 3161 + OTS → verified by external party

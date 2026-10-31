@@ -1,0 +1,9 @@
+audit/<tender>/<date>/
+    ledger.ndjson.gz
+    seals.json
+    MANIFEST.json
+    MANIFEST.tsr         # RFC 3161 timestamp
+    MANIFEST.rekor.json  # Rekor inclusion proof + log public key
+    MANIFEST.ots         # OpenTimestamps proof
+    TSA-CA.pem           # TSA certificate chain (archived for offline)
+    REKOR-LOG-PUBKEY.pem # Rekor's log public key (archived for offline)

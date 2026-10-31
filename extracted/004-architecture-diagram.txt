@@ -1,0 +1,10 @@
+┌────────────┐   ┌──────────────┐   ┌──────────────┐   ┌─────────────┐
+│ Ingestion  │→ │  Indexing    │→ │  Scoring     │→ │  HITL UI    │
+│ (parse,    │   │ (chunks +    │   │ (per-        │   │ (review,    │
+│  OCR,      │   │  provenance  │   │  criterion   │   │  override,  │
+│  tables)   │   │  + embeddings│   │  extraction) │   │  sign-off)  │
+└────────────┘   └──────────────┘   └──────────────┘   └─────────────┘
+                        │                   │                  │
+                   ┌────┴───────────────────┴──────────────────┴────┐
+                   │ Audit log · Model/prompt versioning · RBAC     │
+                   └────────────────────────────────────────────────┘

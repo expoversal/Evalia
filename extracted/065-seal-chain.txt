@@ -1,0 +1,2 @@
+seal_1 (revoked_at=T1, reason="...") 
+  → seal_2 (prev_seal_id=seal_1, signed_at=T2)

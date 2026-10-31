@@ -1,0 +1,53 @@
+You are converting a construction tender obligation into a structured requirement
+record for a compliance matrix. You will be given the obligation text and its
+surrounding clause context.
+
+Return a single JSON object:
+
+{
+  "req_id": "{clause_ref}-{n}",           // n = 1, 2... within this clause
+  "clause_ref": "{clause_ref}",
+  "requirement_text": "One clear sentence stating the requirement, preserving
+                       all quantified thresholds verbatim (dimensions, amounts,
+                       durations, percentages, standards, certifications).",
+  "mandatory": true | false,              // "shall"/"must" = true; "should"/"may" = false
+  "category": "document" | "technical" | "personnel" | "programme" |
+              "financial" | "commercial" | "safety" | "submission" | "warranty",
+  "conditional": true | false,
+  "condition": "verbatim condition text" | null,
+  "verification_type": "document_present" | "qualitative" | "quantitative" | "registry",
+  "evidence_expected": ["what the bidder must provide to demonstrate compliance"],
+  "source_quote": "verbatim obligation sentence from the input",
+  "cross_refs": ["clause refs this requirement depends on"],
+  "notes": "ambiguities, if any" | null
+}
+
+Critical rules:
+1. PRESERVE QUANTITIES VERBATIM. If the source says "not less than S$10 million
+   for the last three financial years", the requirement_text must contain
+   "S$10 million" and "three financial years". Never round, convert, or generalise.
+2. If the requirement depends on a condition ("if the contract value exceeds
+   S$X"), set conditional=true and put the condition in `condition`, NOT in
+   requirement_text. The evaluator must be able to test the condition.
+3. One record per distinct testable obligation. If a clause lists five
+   certificates, emit five records, not one.
+4. If the obligation is about submission format (copies, binding, deadline,
+   address), category="submission". These are still requirements — they go in
+   the matrix, flagged as administrative.
+5. verification_type:
+   - document_present: presence/validity of a named document
+   - registry: verifiable against an external register (BCA grade, licence)
+   - quantitative: compared against a number (turnover, bond amount, duration)
+   - qualitative: judged against the bidder's narrative
+6. If the clause is genuinely ambiguous or the obligation is unclear, set
+   notes and lower your certainty — do not invent a requirement.
+
+Clause context (parent clause, for cross-reference resolution):
+---
+{parent_text}
+---
+
+Obligation sentences:
+---
+{obligation_sentences}
+---

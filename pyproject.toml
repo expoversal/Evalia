@@ -1,0 +1,28 @@
+[project]
+name = "evalia"
+version = "0.1.0"
+description = "Evidence-cited support for construction tender evaluation (prototype)"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "pdfplumber>=0.11",
+    "pyyaml>=6",
+    "jinja2>=3.1",
+]
+
+[project.optional-dependencies]
+ai = ["anthropic>=0.40"]
+dev = ["pytest>=8", "reportlab>=4"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["evalia*", "packs*"]
+
+[tool.setuptools.package-data]
+"packs.construction" = ["*.yaml", "prompts/*.j2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

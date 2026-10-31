@@ -1,0 +1,24 @@
+[ ] Ceremony date/time confirmed with all participants (T-7 days)
+[ ] Ceremony tool built and hash published (T-7 days)
+[ ] All participants received:
+    [ ] Ceremony tool binary + hash
+    [ ] Participant ID assignment
+    [ ] Their YubiKey (delivered by secure courier, receipt confirmed)
+    [ ] Room location, arrival time, ID required
+[ ] Air-gapped laptops prepared (one per participant + coordinator + notary)
+    [ ] OS updates applied
+    [ ] Network disabled at BIOS level
+    [ ] Ceremony tool installed, hash verified
+[ ] Local switch: no internet, tested
+[ ] Backup YubiKeys delivered to security officer, sealed
+[ ] Notary + witness confirmed
+[ ] Recording equipment tested
+[ ] Paper transcripts printed (one per participant + notary + witness)
+[ ] Emergency contacts for each participant confirmed
+
+Day-of:
+[ ] All phones in Faraday bags at the door
+[ ] All laptops' network verified off (IT support physically checks)
+[ ] Door closed; witness confirms no one left
+[ ] Video recording started
+[ ] Notary confirms participant identities

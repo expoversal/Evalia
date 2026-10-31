@@ -1,0 +1,19 @@
+# Settings the client recorded for this engagement before any document was read (fictional).
+# The residency policy names the only destinations permitted for this engagement's documents.
+# Evalia refuses any other destination rather than falling back to one.
+engagement:
+  model_permitted: Commercial model service under contract, no training and no retention
+  model_region: United States
+  model_used: 'None: every reading in this run is deterministic'
+  storage: The client's own engagement folder on the evaluator's machine
+
+# Tender portal receipt log, recorded by the client at opening (fictional).
+deadline: '2026-09-14T17:00:00'
+northfield: '2026-09-14T15:42:00'
+cobalt: '2026-09-14T16:51:00'
+harborpine: '2026-09-14T17:06:00'
+# What the opening panel recorded for each tender.
+opening:
+  northfield: {envelopes: 1, letter_of_authority: true}
+  cobalt: {envelopes: 1, letter_of_authority: true}
+  harborpine: {envelopes: 1, letter_of_authority: true}

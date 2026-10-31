@@ -1,0 +1,4 @@
+- API pods (stateless, behind IAM-authenticated LB)
+- Seal worker (separate deployment; holds KMS sign permission)
+- Nightly audit-chain verifier (CronJob; writes result to audit.meta)
+- Postgres (managed, with PITR; audit.ledger replicated to WORM bucket daily)

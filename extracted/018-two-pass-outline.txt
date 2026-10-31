@@ -1,0 +1,3 @@
+Pass 1 (cheap model, every chunk):  does this chunk contain a bidder obligation?
+                                     binary + obligation sentences verbatim
+Pass 2 (strong model, candidates):  structure it into a Requirement record

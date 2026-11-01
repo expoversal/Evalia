@@ -8,7 +8,7 @@ This note lets another assistant (for example Claude Cowork) or a collaborator p
 |---|---|
 | Code and documents | GitHub `expoversal/Evalia`, branch `claude/optimistic-shannon-bzbmhe` |
 | Pull request (draft) | https://github.com/expoversal/Evalia/pull/1 |
-| Interactive prototype (private link) | https://claude.ai/artifact/7RujyD5Ls3C7UXiMF7TegL |
+| Interactive prototype (public, GitHub Pages) | https://expoversal.github.io/Evalia/ |
 | Project rules | `CLAUDE.md` |
 | Scope and change log | `docs/04-v1-scope.md`, sections 9 to 11 |
 | Positioning and demo storyline | `docs/05-positioning.md` |
